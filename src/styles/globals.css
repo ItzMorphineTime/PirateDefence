@@ -1,0 +1,355 @@
+:root {
+  --bg-deep: #0a121e;
+  --bg-panel: #121d2e;
+  --bg-panel-2: #18253a;
+  --bg-slot: #1d2c44;
+  --border: #2a3c58;
+  --border-bright: #3c5680;
+  --text: #d8e3f2;
+  --text-dim: #8294ad;
+  --gold: #f2c14e;
+  --salvage: #b8c4d0;
+  --powder: #e07a3c;
+  --mana: #4ea3f2;
+  --trust: #c77dff;
+  --hp: #5ad17e;
+  --hp-low: #e05858;
+  --danger: #e05858;
+  --accent: #2fbfa0;
+  --boss: #d63d5e;
+  font-family: "Trebuchet MS", "Segoe UI", system-ui, sans-serif;
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  width: 100%;
+  background: var(--bg-deep);
+  color: var(--text);
+  overflow: hidden;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+  color: var(--text);
+  background: var(--bg-slot);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  transition: background 0.1s, border-color 0.1s, transform 0.05s;
+  user-select: none;
+}
+button:hover:not(:disabled) {
+  background: var(--bg-panel-2);
+  border-color: var(--border-bright);
+}
+button:active:not(:disabled) {
+  transform: translateY(1px);
+}
+button:disabled {
+  opacity: 0.42;
+  cursor: not-allowed;
+}
+
+/* ---------- Layout ---------- */
+.app {
+  display: flex;
+  height: 100vh;
+  width: 100vw;
+}
+
+.battlefield {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  background: radial-gradient(circle at 50% 45%, #15324d 0%, #0b1a2c 55%, #07101c 100%);
+  overflow: hidden;
+}
+.battlefield canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.panel {
+  flex: 0 0 360px;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-panel);
+  border-left: 1px solid var(--border);
+  height: 100vh;
+}
+
+/* ---------- Top bar overlay ---------- */
+.topbar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  gap: 14px;
+  padding: 10px 14px;
+  pointer-events: none;
+  flex-wrap: wrap;
+}
+.stat-chip {
+  background: rgba(10, 18, 30, 0.78);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 5px 10px;
+  font-size: 12px;
+  line-height: 1.3;
+}
+.stat-chip .label {
+  color: var(--text-dim);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.stat-chip .value {
+  font-size: 15px;
+  font-weight: bold;
+}
+
+.hp-bar {
+  width: 130px;
+  height: 7px;
+  margin-top: 3px;
+  background: #2a1416;
+  border-radius: 4px;
+  overflow: hidden;
+}
+.hp-bar > div {
+  height: 100%;
+  background: var(--hp);
+  transition: width 0.2s;
+}
+
+/* ---------- Wave banner ---------- */
+.wave-banner {
+  position: absolute;
+  top: 64px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: linear-gradient(180deg, rgba(214, 61, 94, 0.95), rgba(120, 24, 44, 0.95));
+  border: 1px solid var(--boss);
+  border-radius: 8px;
+  padding: 8px 22px;
+  text-align: center;
+  pointer-events: none;
+  box-shadow: 0 4px 20px rgba(214, 61, 94, 0.4);
+  animation: bannerPop 0.4s ease-out;
+}
+.wave-banner .title {
+  font-size: 18px;
+  font-weight: bold;
+  letter-spacing: 1px;
+}
+.wave-banner .sub {
+  font-size: 11px;
+  color: #ffd9e2;
+}
+@keyframes bannerPop {
+  from { transform: translateX(-50%) scale(0.7); opacity: 0; }
+  to { transform: translateX(-50%) scale(1); opacity: 1; }
+}
+
+/* ---------- Resource bar ---------- */
+.resource-bar {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px;
+  padding: 10px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-panel-2);
+}
+.res {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 8px;
+  background: var(--bg-slot);
+  border-radius: 5px;
+  font-size: 13px;
+}
+.res .dot {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+}
+.res .rname {
+  color: var(--text-dim);
+  font-size: 10px;
+  text-transform: uppercase;
+}
+.res .rval {
+  margin-left: auto;
+  font-weight: bold;
+}
+
+/* ---------- Tabs ---------- */
+.tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-panel-2);
+}
+.tab {
+  flex: 1;
+  padding: 9px 4px;
+  text-align: center;
+  font-size: 12px;
+  border: none;
+  border-radius: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+}
+.tab.active {
+  border-bottom-color: var(--accent);
+  background: var(--bg-panel);
+  color: var(--accent);
+}
+
+.tab-body {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 10px;
+}
+.tab-body::-webkit-scrollbar { width: 8px; }
+.tab-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+.section-title {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-dim);
+  margin: 12px 0 6px;
+}
+.section-title:first-child { margin-top: 0; }
+
+/* ---------- Buy rows ---------- */
+.buy-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  padding: 8px 10px;
+  margin-bottom: 6px;
+}
+.buy-row .info { flex: 1 1 auto; min-width: 0; }
+.buy-row .name { font-size: 13px; font-weight: bold; }
+.buy-row .desc { font-size: 10.5px; color: var(--text-dim); }
+.buy-row .lvl { font-size: 10px; color: var(--accent); }
+.buy-row .cost {
+  flex: 0 0 auto;
+  font-size: 11px;
+  text-align: right;
+  white-space: nowrap;
+}
+.buy-row .cost .ok { color: var(--gold); }
+.buy-row .cost .no { color: var(--danger); }
+
+/* ---------- Ability bar ---------- */
+.ability-bar {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px;
+  padding: 10px;
+  border-top: 1px solid var(--border);
+  background: var(--bg-panel-2);
+}
+.ability {
+  position: relative;
+  padding: 8px;
+  text-align: left;
+  overflow: hidden;
+}
+.ability .aname { font-size: 12px; font-weight: bold; }
+.ability .acost { font-size: 10px; color: var(--text-dim); }
+.ability .cooldown {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  height: 3px;
+  background: var(--mana);
+}
+.ability.armed {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent) inset;
+}
+
+/* ---------- Speed controls ---------- */
+.speed-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px;
+  border-top: 1px solid var(--border);
+  background: var(--bg-panel-2);
+  flex-wrap: wrap;
+}
+.speed-controls .grp { display: flex; gap: 4px; }
+.speed-btn { padding: 6px 10px; font-size: 12px; font-weight: bold; }
+.speed-btn.active { background: var(--accent); border-color: var(--accent); color: #08131e; }
+.toggle-btn { padding: 6px 10px; font-size: 11px; }
+.toggle-btn.on { background: var(--accent); border-color: var(--accent); color: #08131e; }
+
+/* ---------- Build menu (canvas overlay) ---------- */
+.build-menu {
+  position: absolute;
+  z-index: 20;
+  background: rgba(12, 20, 32, 0.97);
+  border: 1px solid var(--border-bright);
+  border-radius: 8px;
+  padding: 8px;
+  width: 200px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.6);
+}
+.build-menu .bm-title {
+  font-size: 11px;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  margin-bottom: 6px;
+}
+
+/* ---------- Header / title ---------- */
+.panel-header {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  background: linear-gradient(180deg, #16243a, #101a2a);
+}
+.panel-header .game-title { font-size: 16px; font-weight: bold; letter-spacing: 0.5px; }
+.panel-header .game-sub { font-size: 10px; color: var(--text-dim); }
+
+/* ---------- Toast / event ---------- */
+.event-toast {
+  position: absolute;
+  bottom: 16px;
+  left: 16px;
+  max-width: 360px;
+  background: rgba(12, 20, 32, 0.96);
+  border: 1px solid var(--trust);
+  border-left-width: 4px;
+  border-radius: 6px;
+  padding: 12px 14px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  animation: bannerPop 0.4s ease-out;
+}
+.event-toast .et-title { font-size: 14px; font-weight: bold; color: var(--trust); }
+.event-toast .et-body { font-size: 12px; color: var(--text); margin-top: 4px; }
+.event-toast button { margin-top: 8px; padding: 5px 12px; font-size: 12px; }
+
+.hint {
+  font-size: 10.5px;
+  color: var(--text-dim);
+  padding: 4px 2px 8px;
+  line-height: 1.4;
+}
