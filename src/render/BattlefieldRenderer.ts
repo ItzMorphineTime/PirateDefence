@@ -180,13 +180,19 @@ export class BattlefieldRenderer {
     for (const tower of this.engine.world.towers) {
       const def = TOWER_DEFS[tower.defId];
       if (def.range <= 0) {
-        // Watchtower aura
+        // Support aura ring (Watchtower range aura or Ember Shrine damage aura).
         const aura = def.auraRadius ?? 0;
-        ctx.beginPath();
-        ctx.arc(this.tx(tower.pos.x), this.ty(tower.pos.y), this.s(aura), 0, Math.PI * 2);
-        ctx.strokeStyle = "rgba(110,168,216,0.12)";
-        ctx.lineWidth = this.s(1);
-        ctx.stroke();
+        if (aura > 0) {
+          ctx.beginPath();
+          ctx.arc(this.tx(tower.pos.x), this.ty(tower.pos.y), this.s(aura), 0, Math.PI * 2);
+          // Tint the ring by the support type: damage auras glow with the
+          // tower's own color; range auras use the cool watchtower blue.
+          ctx.strokeStyle = def.damageAura
+            ? hexAlpha(def.color, 0.18)
+            : "rgba(110,168,216,0.12)";
+          ctx.lineWidth = this.s(1);
+          ctx.stroke();
+        }
         continue;
       }
       const range = this.engine.towers.effectiveRange(this.engine.world, tower);

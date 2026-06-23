@@ -20,7 +20,28 @@ export interface Vec2 {
 // ---------------------------------------------------------------------------
 // Towers
 // ---------------------------------------------------------------------------
-export type TowerId = "archer" | "cannon" | "ballista" | "watchtower";
+export type TowerId =
+  | "archer"
+  | "cannon"
+  | "ballista"
+  | "watchtower"
+  | "crossbow"
+  | "mortar"
+  | "harpoon"
+  | "veilflame"
+  | "frostObelisk"
+  | "stormSpire"
+  | "tideEngine"
+  | "emberShrine";
+
+/** Status payload a tower applies to enemies it hits. */
+export interface StatusApplication {
+  id: StatusId;
+  /** Duration in seconds. */
+  duration: number;
+  /** Magnitude (burn dmg/sec, slow factor 0..1, armorShred flat). */
+  magnitude: number;
+}
 
 export interface TowerDef {
   id: TowerId;
@@ -42,6 +63,16 @@ export interface TowerDef {
   auraRadius?: number;
   projectileSpeed: number;
   color: string;
+  // --- Phase 2 behavior flags (all optional; absent = vanilla) ---
+  /** Number of enemies a single-target shot pierces through (>=2 = pierce). */
+  pierceCount?: number;
+  /** Minimum engagement range; enemies closer than this are ignored. */
+  minRange?: number;
+  /** Status effect applied to enemies hit by this tower's projectiles. */
+  appliesStatus?: StatusApplication;
+  /** Support-only: flat damage-multiplier bonus granted to towers within
+   *  auraRadius (e.g. Ember Shrine). Does not fire projectiles. */
+  damageAura?: number;
 }
 
 export interface Tower {
@@ -142,6 +173,10 @@ export interface Projectile {
   bossMultiplier: number;
   color: string;
   sourceTargetUid: number; // enemy aimed at
+  /** Enemies a single-target shot pierces through (default 1). */
+  pierceCount?: number;
+  /** Status applied to each enemy this projectile hits. */
+  status?: StatusApplication;
 }
 
 export interface Effect {
@@ -182,10 +217,18 @@ export type UpgradeId =
   | "ballistaDmg"
   | "ballistaRange"
   | "watchtowerAura"
+  | "crossbowDmg"
+  | "crossbowRange"
+  | "mortarDmg"
+  | "mortarRange"
+  | "harpoonDmg"
+  | "harpoonRange"
   | "shipDmg"
   | "shipRange"
   | "shipOrbit"
   | "shipReload"
+  | "magicDmg"
+  | "magicPotency"
   | "maxMana"
   | "manaRegen"
   | "goldGain";

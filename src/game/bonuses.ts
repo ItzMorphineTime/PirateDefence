@@ -2,9 +2,9 @@
 // Computes derived combat/economy values from upgrade levels + dragon trust.
 // Centralizing this keeps managers free of upgrade math.
 // ============================================================================
-import type { TowerId, DragonState } from "./types";
+import type { TowerId, UpgradeId, DragonState } from "./types";
 import type { UpgradeManager } from "./managers/UpgradeManager";
-import { UP } from "./data/upgrades";
+import { UP, MAGIC_TOWER_IDS } from "./data/upgrades";
 import { TOWER_DEFS } from "./data/towers";
 import { SHIP_DEFS } from "./data/ships";
 import {
@@ -31,20 +31,31 @@ export interface Bonuses {
 export function computeBonuses(up: UpgradeManager, dragon: DragonState): Bonuses {
   const dragonDamageMult = 1 + dragon.trust * DRAGON_TRUST_DAMAGE_BONUS;
 
+  const isMagic = (id: TowerId): boolean =>
+    (MAGIC_TOWER_IDS as readonly string[]).includes(id);
+
+  /** Per-level magnitude for an upgrade id, or 0 if no such tunable exists. */
+  const mag = (key: string): number =>
+    (UP as Record<string, number>)[key] ?? 0;
+
+  /** Level for an upgrade id that may not exist; 0 if the id is unknown. */
+  const lvl = (key: string): number =>
+    key in UP ? up.level(key as UpgradeId) : 0;
+
   return {
     dragonDamageMult,
     towerDamageMult: (id: TowerId) => {
-      let m = 1;
-      if (id === "archer") m = 1 + up.level("archerDmg") * UP.archerDmg;
-      else if (id === "cannon") m = 1 + up.level("cannonDmg") * UP.cannonDmg;
-      else if (id === "ballista") m = 1 + up.level("ballistaDmg") * UP.ballistaDmg;
+      // Convention: each attacking tower has a `{id}Dmg` upgrade.
+      let m = 1 + lvl(`${id}Dmg`) * mag(`${id}Dmg`);
+      // Shared magic-damage upgrade applies on top for magic towers.
+      if (isMagic(id)) m += lvl("magicDmg") * UP.magicDmg;
       return m * dragonDamageMult;
     },
     towerRangeFlat: (id: TowerId) => {
-      if (id === "archer") return up.level("archerRange") * UP.archerRange;
-      if (id === "cannon") return up.level("cannonRange") * UP.cannonRange;
-      if (id === "ballista") return up.level("ballistaRange") * UP.ballistaRange;
-      return 0;
+      // Convention: each ranged tower has a `{id}Range` upgrade.
+      let flat = lvl(`${id}Range`) * mag(`${id}Range`);
+      if (isMagic(id)) flat += lvl("magicPotency") * UP.magicPotency;
+      return flat;
     },
     watchtowerAura:
       (TOWER_DEFS.watchtower.rangeAura ?? 0) +

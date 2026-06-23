@@ -1,9 +1,15 @@
-import type { Enemy, Projectile, Vec2 } from "../types";
+import type { Enemy, Projectile, StatusApplication, Vec2 } from "../types";
 import type { World } from "../world";
 import { ENEMY_DEFS } from "../data/enemies";
 import { dist, nextUid } from "../math";
-import { applyDamage } from "../combat";
+import { applyDamage, applyStatus } from "../combat";
 import type { ResourceManager } from "./ResourceManager";
+
+/** Optional per-shot behavior carried on a projectile (Phase 2 towers). */
+export interface ProjectileOpts {
+  pierceCount?: number;
+  status?: StatusApplication;
+}
 
 export class ProjectileManager {
   spawn(
@@ -15,7 +21,8 @@ export class ProjectileManager {
     bossMultiplier: number,
     color: string,
     targetUid: number,
-    speed: number
+    speed: number,
+    opts: ProjectileOpts = {}
   ): void {
     const p: Projectile = {
       uid: nextUid(),
@@ -27,6 +34,8 @@ export class ProjectileManager {
       bossMultiplier,
       color,
       sourceTargetUid: targetUid,
+      pierceCount: opts.pierceCount,
+      status: opts.status,
     };
     world.projectiles.push(p);
   }
@@ -80,23 +89,51 @@ export class ProjectileManager {
         }
       }
     } else {
-      // Single-target: hit the originally targeted enemy if still present & near,
-      // else nearest to impact point.
-      let target = world.enemies.find((e) => e.uid === p.sourceTargetUid) ?? null;
-      if (!target) {
-        let bestD = Infinity;
-        for (const e of world.enemies) {
-          const d = dist(e.pos, p.target);
-          if (d < bestD && d <= e_radius(e) + 14) {
-            bestD = d;
-            target = e;
-          }
-        }
+      // Single-target (optionally piercing): start from the originally targeted
+      // enemy, then the next-nearest enemies to the impact point.
+      const pierce = Math.max(1, p.pierceCount ?? 1);
+      const targets = this.pickPierceTargets(world, p, pierce);
+      for (const t of targets) {
+        this.hit(world, t, p, res, goldScale, onManaFromKill);
       }
-      if (target) this.hit(world, target, p, res, goldScale, onManaFromKill);
     }
 
     world.enemies = world.enemies.filter((e) => e.hp > 0);
+  }
+
+  /**
+   * Choose up to `count` enemies for a single-target/piercing shot: the aimed
+   * enemy (if still alive & near) plus the nearest others to the impact point.
+   */
+  private pickPierceTargets(world: World, p: Projectile, count: number): Enemy[] {
+    const out: Enemy[] = [];
+    const primary = world.enemies.find((e) => e.uid === p.sourceTargetUid) ?? null;
+    if (primary) out.push(primary);
+
+    if (out.length < count) {
+      const rest = world.enemies
+        .filter((e) => e !== primary && dist(e.pos, p.target) <= e_radius(e) + 14)
+        .sort((a, b) => dist(a.pos, p.target) - dist(b.pos, p.target));
+      for (const e of rest) {
+        if (out.length >= count) break;
+        out.push(e);
+      }
+    }
+
+    // Fallback: if nothing was aimed/near, hit the single closest enemy.
+    if (out.length === 0) {
+      let best: Enemy | null = null;
+      let bestD = Infinity;
+      for (const e of world.enemies) {
+        const d = dist(e.pos, p.target);
+        if (d < bestD && d <= e_radius(e) + 14) {
+          bestD = d;
+          best = e;
+        }
+      }
+      if (best) out.push(best);
+    }
+    return out;
   }
 
   private hit(
@@ -112,6 +149,9 @@ export class ProjectileManager {
       manaOnBossKill: 20,
       onManaFromKill,
     });
+    if (p.status && e.hp > 0) {
+      applyStatus(e, p.status.id, p.status.duration, p.status.magnitude, world.time);
+    }
   }
 }
 

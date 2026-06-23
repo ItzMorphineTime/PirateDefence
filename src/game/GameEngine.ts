@@ -194,7 +194,8 @@ export class GameEngine {
     const goldScale = this.waves.goldScale();
     this.towers.update(w, dt, (tower, target) => {
       const def: TowerDef = TOWER_DEFS[tower.defId];
-      const dmg = def.damage * w.bonuses.towerDamageMult(tower.defId);
+      const auraMult = this.towers.damageAuraMult(w, tower);
+      const dmg = def.damage * w.bonuses.towerDamageMult(tower.defId) * auraMult;
       this.projectiles.spawn(
         w,
         tower.pos,
@@ -204,7 +205,8 @@ export class GameEngine {
         def.bossMultiplier,
         def.color,
         target.uid,
-        def.projectileSpeed
+        def.projectileSpeed,
+        { pierceCount: def.pierceCount, status: def.appliesStatus }
       );
     });
 

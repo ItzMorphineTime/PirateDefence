@@ -30,7 +30,7 @@
 | MVP core loop | ✅ Done | Towers, ships, waves, abilities, economy, save/load |
 | Code-quality fixes (§A) | 🟨 In progress | A1/A2/A4/A5/A6/A7 done; A3/A8–A12 remain |
 | Phase 1 — Foundations | ✅ Done | Status framework, unified damage pipeline, registry hygiene, save migration |
-| Phase 2 — Towers & Magic Towers | ⬜ Not started | New `TowerId`s + status effects |
+| Phase 2 — Towers & Magic Towers | ✅ Done | 3 standard + 5 magic towers, behavior flags, upgrades, renderer |
 | Phase 3 — Fleet Expansion | ⬜ Not started | New ship classes + ring behaviors |
 | Phase 4 — Dragon System | ⬜ Not started | Dragon types, hatch timers, dragon abilities |
 | Phase 5 — Pirate King Factions | ⬜ Not started | `FactionManager`, faction waves & counters |
@@ -157,28 +157,39 @@ Storm Spire, Frost Obelisk, Ember Shrine).
 
 **Depends on:** Phase 1 (status effects, damage pipeline).
 
-- [ ] **2.1 Standard towers.** Add `crossbow` (multi-shot/pierce), `mortar`
-  (long-range high-splash, min-range), `harpoon` (single-target pull/slow) to
-  `TowerId` + `TOWER_DEFS` + `BUILDABLE_TOWERS`. _Files:_ `types.ts`,
+- [x] **2.1 Standard towers.** Added `crossbow` (pierces 3 enemies), `mortar`
+  (range 320 / splash 70 / `minRange` 140), `harpoon` (single bolt, applies slow,
+  `bossMultiplier` 1.3) to `TowerId` + `TOWER_DEFS`. `BUILDABLE_TOWERS` derives
+  from `Object.keys(TOWER_DEFS)`, so they auto-appear. _Files:_ `types.ts`,
   `data/towers.ts`.
-- [ ] **2.2 Tower behavior flags.** Extend `TowerDef` with optional behavior
-  fields (`pierceCount?`, `minRange?`, `appliesStatus?`). Honor them in
-  `TowerManager.update` / projectile resolution. _Files:_ `types.ts`,
-  `TowerManager.ts`, `ProjectileManager.ts`.
-- [ ] **2.3 Magic towers + Mana-as-build-resource.** Add the five magic towers;
-  each applies a status (Veilflame=burn, Frost Obelisk=slow, Storm Spire=chain,
-  Tide Engine=area pulse, Ember Shrine=aura buff). Decide cost model (gold +
-  powder, or a new resource — see Phase 8). _Files:_ `data/towers.ts`,
-  `bonuses.ts`, status framework.
-- [ ] **2.4 Upgrades + UI.** Add per-tower upgrade entries to `UpgradeId`,
-  `UP`, `UPGRADE_DEFS`, and a new magic group in `UPGRADE_GROUPS`. The Towers
-  tab already renders `BUILDABLE_TOWERS`, so towers appear automatically.
-  _Files:_ `data/upgrades.ts`, `types.ts`.
-- [ ] **2.5 Renderer.** Give magic towers distinct colors/glyphs in
-  `BattlefieldRenderer.drawTowers`. _Files:_ `BattlefieldRenderer.ts`.
+- [x] **2.2 Tower behavior flags.** `TowerDef` gained `pierceCount?`, `minRange?`,
+  `appliesStatus?: StatusApplication`, `damageAura?`; `Projectile` gained
+  `pierceCount?`/`status?`. `TowerManager.pickTarget` honors `minRange`;
+  `damageAuraMult()` sums Ember-Shrine auras. `ProjectileManager` spawns with
+  opts, pierces via `pickPierceTargets`, and applies status on hit through
+  `applyStatus`. _Files:_ `types.ts`, `TowerManager.ts`, `ProjectileManager.ts`,
+  `GameEngine.ts`.
+- [x] **2.3 Magic towers (gold + powder).** Added Veilflame (burn), Frost
+  Obelisk (slow + splash), Storm Spire (armor-shred + splash), Tide Engine (wide
+  splash pulse), Ember Shrine (no attack; `damageAura` +25% to towers in range).
+  Cost model resolved: **gold + powder** (no new `ResourceId`). _Files:_
+  `data/towers.ts`, status framework.
+- [x] **2.4 Upgrades + UI.** Added `crossbowDmg/Range`, `mortarDmg/Range`,
+  `harpoonDmg/Range`, plus shared `magicDmg`/`magicPotency` to `UpgradeId`, `UP`,
+  and `UPGRADE_DEFS`; folded into the Towers and Treasury & Magic upgrade groups.
+  Generalized `bonuses.ts` `towerDamageMult`/`towerRangeFlat` to a
+  convention-based `{id}Dmg`/`{id}Range` lookup that also applies magic upgrades
+  to `MAGIC_TOWER_IDS` — new towers' upgrades auto-apply with no engine edits.
+  _Files:_ `data/upgrades.ts`, `types.ts`, `bonuses.ts`.
+- [x] **2.5 Renderer.** Distinct visuals come free from per-def `color` +
+  name-initial glyph in `drawTowers`. `drawTowerRanges` now tints support-aura
+  rings: damage auras (Ember Shrine) glow with the tower's own color, range auras
+  (Watchtower) keep the cool blue. _Files:_ `BattlefieldRenderer.ts`.
 
-**Acceptance:** all new towers buildable, upgradable, render distinctly, and
-apply their statuses; build passes.
+**Acceptance:** ✅ all 8 new towers are buildable from the derived menu,
+upgradable via convention-based bonuses, render distinctly (color + glyph + aura
+tint), and apply their statuses through the shared pipeline; `npm run build`
+passes with no special-casing in `GameEngine.step()`.
 
 ### Phase 3 — Fleet Expansion
 
@@ -325,6 +336,16 @@ A task is `[x]` only when **all** hold:
 
 > Newest first. One entry per meaningful change. Format: `YYYY-MM-DD — area — summary`.
 
+- 2026-06-23 — engine — Completed Phase 2 (Towers & Magic Towers): added 3
+  standard towers (crossbow=pierce, mortar=long-range/min-range, harpoon=slow)
+  and 5 magic towers (Veilflame=burn, Frost Obelisk=slow, Storm Spire=shred,
+  Tide Engine=splash, Ember Shrine=damage-aura support), all gold+powder for
+  magic. Extended `TowerDef`/`Projectile` with behavior flags and honored them in
+  `TowerManager`/`ProjectileManager` (pierce, minRange, status-on-hit, damage
+  aura). Added per-tower + shared magic upgrades and generalized `bonuses.ts` to a
+  convention-based `{id}Dmg`/`{id}Range` lookup (magic upgrades apply to
+  `MAGIC_TOWER_IDS`). Renderer tints support-aura rings by type. Build passes.
+  Cost-model open decision resolved (gold + powder, no new resource).
 - 2026-06-23 — engine — Completed Phase 1 (Foundations): 1.3 registry hygiene —
   `BUILDABLE_TOWERS`/`BUILDABLE_SHIPS` now derive from `*_DEFS` keys so new defs
   auto-appear in the UI; removed dead `slowUntil`/`slowFactor` from `Enemy` (now
@@ -346,8 +367,10 @@ A task is `[x]` only when **all** hold:
 
 ## 🧭 Open Decisions (resolve before the dependent phase)
 
-- [!] **Magic-tower cost model** (Phase 2/8): reuse powder, or introduce a new
-  "essence"/mana-crystal resource? Affects `ResourceId`.
+- [x] **Magic-tower cost model** (Phase 2/8): ~~reuse powder, or introduce a new
+  "essence"/mana-crystal resource?~~ **Resolved:** magic towers cost **gold +
+  powder** (no new `ResourceId`). A dedicated magic resource may still be
+  introduced later in Phase 8 (8.1) if desired.
 - [!] **Dragon data shape** (Phase 4): single evolving sanctuary vs. a roster of
   individual dragons. Roadmap assumes a roster.
 - [!] **Faction selection** (Phase 5): one faction per run, per region, or

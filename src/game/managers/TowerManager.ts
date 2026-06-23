@@ -74,7 +74,7 @@ export class TowerManager {
       if (tower.cooldown > 0) continue;
 
       const range = this.effectiveRange(world, tower);
-      const target = this.pickTarget(world, tower.pos, range);
+      const target = this.pickTarget(world, tower.pos, range, def.minRange ?? 0);
       if (!target) continue;
 
       fireProjectile(tower, target);
@@ -82,12 +82,21 @@ export class TowerManager {
     }
   }
 
-  /** Prefer closest-to-core (lowest distance to center) within range. */
-  private pickTarget(world: World, from: Vec2, range: number): Enemy | null {
+  /**
+   * Prefer closest-to-core (lowest distance to center) within [minRange, range].
+   * minRange lets long-range towers (mortar) ignore point-blank enemies.
+   */
+  private pickTarget(
+    world: World,
+    from: Vec2,
+    range: number,
+    minRange: number
+  ): Enemy | null {
     let best: Enemy | null = null;
     let bestCoreDist = Infinity;
     for (const e of world.enemies) {
-      if (dist(from, e.pos) > range) continue;
+      const d = dist(from, e.pos);
+      if (d > range || d < minRange) continue;
       const cd = dist(e.pos, CENTER);
       if (cd < bestCoreDist) {
         bestCoreDist = cd;
@@ -95,5 +104,21 @@ export class TowerManager {
       }
     }
     return best;
+  }
+
+  /**
+   * Combined damage multiplier from all Ember-Shrine damage auras whose radius
+   * covers this tower. Returns 1 when no shrine is in range.
+   */
+  damageAuraMult(world: World, tower: Tower): number {
+    let mult = 1;
+    for (const t of world.towers) {
+      const def = TOWER_DEFS[t.defId];
+      if (!def.damageAura || t.uid === tower.uid) continue;
+      if (dist(t.pos, tower.pos) <= (def.auraRadius ?? 0)) {
+        mult += def.damageAura;
+      }
+    }
+    return mult;
   }
 }
