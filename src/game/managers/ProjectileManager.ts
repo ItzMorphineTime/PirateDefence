@@ -2,11 +2,8 @@ import type { Enemy, Projectile, Vec2 } from "../types";
 import type { World } from "../world";
 import { ENEMY_DEFS } from "../data/enemies";
 import { dist, nextUid } from "../math";
+import { applyDamage } from "../combat";
 import type { ResourceManager } from "./ResourceManager";
-
-export interface KillResult {
-  goldScale: number;
-}
 
 export class ProjectileManager {
   spawn(
@@ -79,7 +76,7 @@ export class ProjectileManager {
     if (p.splash > 0) {
       for (const e of world.enemies) {
         if (dist(e.pos, p.target) <= p.splash) {
-          this.damageEnemy(world, e, p, res, goldScale, onManaFromKill);
+          this.hit(world, e, p, res, goldScale, onManaFromKill);
         }
       }
     } else {
@@ -96,13 +93,13 @@ export class ProjectileManager {
           }
         }
       }
-      if (target) this.damageEnemy(world, target, p, res, goldScale, onManaFromKill);
+      if (target) this.hit(world, target, p, res, goldScale, onManaFromKill);
     }
 
     world.enemies = world.enemies.filter((e) => e.hp > 0);
   }
 
-  private damageEnemy(
+  private hit(
     world: World,
     e: Enemy,
     p: Projectile,
@@ -110,25 +107,11 @@ export class ProjectileManager {
     goldScale: number,
     onManaFromKill: (amount: number) => void
   ): void {
-    if (e.hp <= 0) return;
-    const def = ENEMY_DEFS[e.defId];
-    let dmg = p.damage * (e.isBoss ? p.bossMultiplier : 1);
-    dmg = Math.max(1, dmg - def.armor);
-    e.hp -= dmg;
-    world.damageEvents.push({ t: world.time, amount: dmg });
-
-    if (e.hp <= 0) {
-      // Reward: gold scaled by wave; other resources flat.
-      const reward = { ...def.reward };
-      const gold = (reward.gold ?? 0) * goldScale * world.bonuses.goldMult;
-      res.add("gold", gold);
-      if (reward.salvage) res.add("salvage", reward.salvage);
-      if (reward.powder) res.add("powder", reward.powder);
-      if (e.isBoss) {
-        onManaFromKill(20);
-        world.bossKills++;
-      }
-    }
+    applyDamage(world, e, p.damage, res, goldScale, {
+      bossMultiplier: p.bossMultiplier,
+      manaOnBossKill: 20,
+      onManaFromKill,
+    });
   }
 }
 

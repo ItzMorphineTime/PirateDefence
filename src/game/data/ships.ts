@@ -40,4 +40,5 @@ export const SHIP_DEFS: Record<ShipId, ShipDef> = {
   },
 };
 
-export const BUILDABLE_SHIPS: ShipId[] = ["cutter", "gunboat", "sloop"];
+/** Fleet menu derives from SHIP_DEFS so new defs auto-appear in the UI. */
+export const BUILDABLE_SHIPS: ShipId[] = Object.keys(SHIP_DEFS) as ShipId[];

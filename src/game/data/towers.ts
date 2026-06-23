@@ -61,4 +61,5 @@ export const TOWER_DEFS: Record<TowerId, TowerDef> = {
   },
 };
 
-export const BUILDABLE_TOWERS: TowerId[] = ["archer", "cannon", "ballista", "watchtower"];
+/** Build menu derives from TOWER_DEFS so new defs auto-appear in the UI. */
+export const BUILDABLE_TOWERS: TowerId[] = Object.keys(TOWER_DEFS) as TowerId[];

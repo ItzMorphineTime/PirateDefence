@@ -59,6 +59,17 @@ export const DRAGON_TRUST_PER_BOSS = 3;
 export const DRAGON_TRUST_DAMAGE_BONUS = 0.02; // +2% tower dmg per trust
 export const DRAGON_EGG_BASE_TRUST = 1;
 
+// --- Status effects (defaults; per-source values may override) ---
+export const STATUS = {
+  burnDuration: 3, // seconds
+  burnDps: 6, // damage per second
+  slowDuration: 2.5,
+  slowFactor: 0.5, // 50% speed
+  stunDuration: 0.8,
+  shredDuration: 4,
+  shredAmount: 3, // flat armor removed
+};
+
 // --- Speed multipliers ---
 export const SPEED_OPTIONS = [1, 3, 6];
 

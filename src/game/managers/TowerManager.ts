@@ -24,13 +24,30 @@ export class TowerManager {
       pos: this.slotPos(slotIndex),
       slotIndex,
       cooldown: 0,
+      cachedRange: 0,
     };
     world.towers.push(tower);
+    this.recomputeRanges(world);
     return tower;
   }
 
-  /** Effective range including upgrades + watchtower auras. */
-  effectiveRange(world: World, tower: Tower): number {
+  /**
+   * Recompute and cache every tower's effective range. Call when the tower
+   * roster or bonuses change (build/remove/upgrade/dragon-trust), not per frame.
+   */
+  recomputeRanges(world: World): void {
+    for (const tower of world.towers) {
+      tower.cachedRange = this.computeRange(world, tower);
+    }
+  }
+
+  /** Read the cached effective range (computed in recomputeRanges). */
+  effectiveRange(_world: World, tower: Tower): number {
+    return tower.cachedRange;
+  }
+
+  /** Compute effective range including upgrades + watchtower auras. */
+  private computeRange(world: World, tower: Tower): number {
     const def = TOWER_DEFS[tower.defId];
     if (def.range <= 0) return 0;
     let range = def.range + world.bonuses.towerRangeFlat(tower.defId);

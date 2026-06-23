@@ -1,8 +1,10 @@
 import type { AbilityId, AbilityState, Vec2 } from "../types";
 import type { World } from "../world";
 import { ABILITY_DEFS, ABILITY_LIST, ABILITY_TUNING } from "../data/abilities";
-import { ENEMY_DEFS } from "../data/enemies";
+import { SHIP_DEFS } from "../data/ships";
+import { CENTER } from "../config";
 import { dist } from "../math";
+import { applyDamage } from "../combat";
 import type { ResourceManager } from "./ResourceManager";
 import type { ShipManager } from "./ShipManager";
 import type { ProjectileManager } from "./ProjectileManager";
@@ -58,7 +60,7 @@ export class AbilityManager {
         world.rallyUntil = world.time + ABILITY_TUNING.rallyDuration;
         world.rallyMult = ABILITY_TUNING.rallyAttackSpeedMult;
         world.effects.push({
-          pos: { x: 500, y: 400 },
+          pos: { x: CENTER.x, y: CENTER.y },
           radius: 120,
           life: 0.6,
           maxLife: 0.6,
@@ -66,20 +68,13 @@ export class AbilityManager {
         });
         break;
       case "broadside":
-        ctx.ships.forceFireAll(world, (_ship, from, t) => {
-          const ENEMY = ENEMY_DEFS[t.defId];
-          ctx.projectiles.spawn(
-            world,
-            from,
-            t.pos,
-            18 * ABILITY_TUNING.broadsideDamageMult,
-            20,
-            1,
-            "#e0883c",
-            t.uid,
-            500
-          );
-          void ENEMY;
+        ctx.ships.forceFireAll(world, (ship, from, t) => {
+          const shipDef = SHIP_DEFS[ship.defId];
+          const dmg =
+            shipDef.damage *
+            world.bonuses.shipDamageMult *
+            ABILITY_TUNING.broadsideDamageMult;
+          ctx.projectiles.spawn(world, from, t.pos, dmg, 20, 1, "#e0883c", t.uid, 500);
         });
         break;
       case "repairs":
@@ -88,7 +83,7 @@ export class AbilityManager {
           world.islandHp + ABILITY_TUNING.repairsAmount
         );
         world.effects.push({
-          pos: { x: 500, y: 400 },
+          pos: { x: CENTER.x, y: CENTER.y },
           radius: 80,
           life: 0.5,
           maxLife: 0.5,
@@ -120,17 +115,7 @@ export class AbilityManager {
     });
     for (const e of world.enemies) {
       if (dist(e.pos, target) <= radius) {
-        const def = ENEMY_DEFS[e.defId];
-        const dmg = Math.max(1, ABILITY_TUNING.barrageDamage - def.armor);
-        e.hp -= dmg;
-        world.damageEvents.push({ t: world.time, amount: dmg });
-        if (e.hp <= 0) {
-          const gold = (def.reward.gold ?? 0) * ctx.goldScale * world.bonuses.goldMult;
-          ctx.res.add("gold", gold);
-          if (def.reward.salvage) ctx.res.add("salvage", def.reward.salvage);
-          if (def.reward.powder) ctx.res.add("powder", def.reward.powder);
-          if (e.isBoss) world.bossKills++;
-        }
+        applyDamage(world, e, ABILITY_TUNING.barrageDamage, ctx.res, ctx.goldScale);
       }
     }
     world.enemies = world.enemies.filter((e) => e.hp > 0);

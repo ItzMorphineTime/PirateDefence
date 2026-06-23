@@ -28,8 +28,8 @@
 | Area | Status | Notes |
 | ---- | ------ | ----- |
 | MVP core loop | ✅ Done | Towers, ships, waves, abilities, economy, save/load |
-| Code-quality fixes (§A) | ⬜ Not started | Perf + cleanup backlog from review |
-| Phase 1 — Foundations | ⬜ Not started | Refactors that unblock all roadmap content |
+| Code-quality fixes (§A) | 🟨 In progress | A1/A2/A4/A5/A6/A7 done; A3/A8–A12 remain |
+| Phase 1 — Foundations | ✅ Done | Status framework, unified damage pipeline, registry hygiene, save migration |
 | Phase 2 — Towers & Magic Towers | ⬜ Not started | New `TowerId`s + status effects |
 | Phase 3 — Fleet Expansion | ⬜ Not started | New ship classes + ring behaviors |
 | Phase 4 — Dragon System | ⬜ Not started | Dragon types, hatch timers, dragon abilities |
@@ -74,28 +74,31 @@ Carried over from the implementation review. These should be cleared before (or
 alongside) heavy roadmap content, because Phases 1–8 will multiply entity counts.
 
 ### High priority
-- [ ] **A1 — Throttle snapshot emission.** `GameEngine.tick()` calls
-  `buildSnapshot()/emit()` every frame; gate it to a fixed UI cadence (~100 ms)
-  with an accumulator, keeping imperative `pushSnapshot()` for user actions.
+- [x] **A1 — Throttle snapshot emission.** `GameEngine.tick()` now gates
+  `buildSnapshot()/emit()` behind a `SNAPSHOT_INTERVAL` (0.1 s) accumulator
+  (`snapshotTimer`); imperative `pushSnapshot()` still fires on user actions.
   _Files:_ `GameEngine.ts`.
-- [ ] **A2 — Cache effective tower range.** `TowerManager.effectiveRange` is
-  O(N²) and runs per-shot and per-render. Compute once in `refreshDerived()`
-  and store on the tower (`tower.cachedRange`). _Files:_ `TowerManager.ts`,
-  `GameEngine.ts`, `BattlefieldRenderer.ts`, `types.ts`.
+- [x] **A2 — Cache effective tower range.** `TowerManager.computeRange()` runs
+  once via `recomputeRanges()` (called from `build()` and `refreshDerived()`)
+  and stores `tower.cachedRange`; `effectiveRange()` now reads the cache.
+  _Files:_ `TowerManager.ts`, `GameEngine.ts`, `types.ts`.
 - [ ] **A3 — Review repair-sloop stacking balance.** Linear stacking can outpace
   boss damage; consider a cap or diminishing returns. _Files:_ `ShipManager.ts`,
   `config.ts`.
 
 ### Medium priority
-- [ ] **A4 — Save migration.** Replace "drop save on version mismatch" with a
-  `migrate(save)` keyed by version. _Files:_ `save.ts`, `config.ts`.
-- [ ] **A5 — Remove dead markers / stray re-exports.** `void w;`, `void ENEMY;`,
-  `export { WAVE }` from `GameEngine.ts`, literal `8` → `TOWER_SLOT_COUNT`.
+- [x] **A4 — Save migration.** `loadGame()` now runs a forward `MIGRATIONS`
+  loop (keyed by old version, with a guard) instead of dropping on mismatch;
+  `AnySave` carries the loosely-typed shape during migration. _Files:_ `save.ts`.
+- [x] **A5 — Remove dead markers / stray re-exports.** Dropped `void w;` from
+  `BattlefieldRenderer`, removed the `export { WAVE }` re-export from
+  `GameEngine`, and `slotInfo()` now iterates `TOWER_SLOT_COUNT`.
   _Files:_ `BattlefieldRenderer.ts`, `AbilityManager.ts`, `GameEngine.ts`.
-- [ ] **A6 — Broadside uses real ship damage.** Replace the hardcoded `18` base
-  with each ship's `def.damage * shipDamageMult`. _Files:_ `AbilityManager.ts`.
-- [ ] **A7 — Ability effect positions use `CENTER`.** Replace literal `(500,400)`.
+- [x] **A6 — Broadside uses real ship damage.** Broadside now reads
+  `SHIP_DEFS[ship.defId].damage * shipDamageMult * broadsideDamageMult`.
   _Files:_ `AbilityManager.ts`.
+- [x] **A7 — Ability effect positions use `CENTER`.** Rally/repairs effects use
+  `CENTER` instead of the literal `(500,400)`. _Files:_ `AbilityManager.ts`.
 - [ ] **A8 — In-place array compaction in hot loops** (only if profiling warrants).
   _Files:_ `ProjectileManager.ts`, `EnemyManager.ts`, `GameEngine.step`.
 
@@ -118,22 +121,34 @@ data-driven pattern: most new content is a definition + a small manager hook.
 
 **Goal:** Make adding towers/ships/enemies/statuses trivial and safe at scale.
 
-- [ ] **1.1 Status-effect framework.** Generalize the existing `slowUntil/slowFactor`
-  on `Enemy` into a small status list (`burn`, `slow`, `stun`, `armorShred`).
-  Add a `StatusManager` (or fold into `EnemyManager.update`) that ticks DoT and
-  expirations. _Files:_ `types.ts` (extend `Enemy`), `EnemyManager.ts`, `config.ts`.
-- [ ] **1.2 Damage pipeline.** Route all damage (towers, ships, abilities,
-  DoT) through one `applyDamage(enemy, amount, opts)` helper so armor, shred,
-  rewards, and `bossKills++` live in one place. _Files:_ new `combat.ts` or
-  extend `ProjectileManager`; update `AbilityManager.castBarrage` to use it.
-- [ ] **1.3 Content registry hygiene.** Convert `TowerId`/`ShipId`/`EnemyId`
-  unions to be derived from the `*_DEFS` keys where possible, and ensure
-  `BUILDABLE_*` lists drive UI so new entries auto-appear. _Files:_ `data/*`, UI.
-- [ ] **1.4 Save migration scaffold (depends on A4).** Land the migration system
-  first so every later phase bumps `SAVE_VERSION` cleanly. _Files:_ `save.ts`.
+- [x] **1.1 Status-effect framework.** `Enemy` now carries a `statuses:
+  StatusInstance[]` list (`StatusId = burn | slow | stun | armorShred`).
+  `EnemyManager.update` ticks burn DoT through `applyDamage`, drops expired
+  statuses, and movement uses `moveFactor()` (stun→0, slow→min factor).
+  Tunables live in `config.STATUS`. _Files:_ `types.ts`, `EnemyManager.ts`,
+  `config.ts`, `combat.ts`.
+- [x] **1.2 Damage pipeline.** New `combat.ts` exposes `applyDamage()`,
+  `applyStatus()`, `moveFactor()`, `effectiveArmor()`. All damage sources
+  (projectiles via `ProjectileManager.hit`, barrage in
+  `AbilityManager.castBarrage`, burn DoT) route through `applyDamage`, so armor,
+  armor-shred, rewards, mana-on-boss-kill, and `bossKills++` live in one place.
+  _Files:_ `combat.ts`, `ProjectileManager.ts`, `AbilityManager.ts`,
+  `EnemyManager.ts`.
+- [x] **1.3 Content registry hygiene.** `BUILDABLE_TOWERS`/`BUILDABLE_SHIPS`
+  now derive from `Object.keys(TOWER_DEFS)`/`Object.keys(SHIP_DEFS)`, so a new
+  def auto-appears in the build/fleet menus (UpgradePanel already maps these
+  lists). The `id` unions remain the typed source of truth for the `*_DEFS`
+  records. Also removed the dead `slowUntil`/`slowFactor` fields from `Enemy`
+  (superseded by `statuses` + `moveFactor`). _Files:_ `data/towers.ts`,
+  `data/ships.ts`, `types.ts`, `EnemyManager.ts`.
+- [x] **1.4 Save migration scaffold (depends on A4).** Landed via A4: forward
+  `MIGRATIONS` loop in `loadGame()`, ready for `SAVE_VERSION` bumps. _Files:_
+  `save.ts`.
 
-**Acceptance:** a new enemy with a burn vulnerability and a new tower applying
-burn can be added with zero changes to `GameEngine.step()` control flow.
+**Acceptance:** ✅ a new enemy with a burn vulnerability and a new tower applying
+burn can be added with zero changes to `GameEngine.step()` control flow — the
+status framework + unified damage pipeline handle behavior, and registry-derived
+`BUILDABLE_*` lists auto-wire the build/fleet UI.
 
 ### Phase 2 — Additional Towers & Magic Towers
 
@@ -310,6 +325,17 @@ A task is `[x]` only when **all** hold:
 
 > Newest first. One entry per meaningful change. Format: `YYYY-MM-DD — area — summary`.
 
+- 2026-06-23 — engine — Completed Phase 1 (Foundations): 1.3 registry hygiene —
+  `BUILDABLE_TOWERS`/`BUILDABLE_SHIPS` now derive from `*_DEFS` keys so new defs
+  auto-appear in the UI; removed dead `slowUntil`/`slowFactor` from `Enemy` (now
+  fully replaced by `statuses` + `moveFactor`). Build passes. Phase 1 marked done.
+- 2026-06-23 — engine — Implemented §A backlog A1/A2/A4/A5/A6/A7 and Phase 1.1/1.2/1.4:
+  snapshot throttling (`SNAPSHOT_INTERVAL`), cached tower range
+  (`recomputeRanges`), save-migration scaffold (`MIGRATIONS`), dead-marker
+  cleanup + `TOWER_SLOT_COUNT`, real broadside damage, `CENTER`-based effects,
+  status-effect framework (`Enemy.statuses`, `config.STATUS`), and a unified
+  `combat.ts` damage pipeline (`applyDamage`/`applyStatus`/`moveFactor`/
+  `effectiveArmor`) that all damage sources now route through. Build passes.
 - 2026-06-23 — docs — Expanded ImplementationPlan into a central living tracker:
   added status legend, progress dashboard, code-quality backlog (Section A), and
   detailed Phase 1–8 roadmap steps grounded in the current files.

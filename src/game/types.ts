@@ -50,6 +50,9 @@ export interface Tower {
   pos: Vec2;
   slotIndex: number;
   cooldown: number; // time until next shot
+  /** Cached effective range (def + upgrades + watchtower auras). Recomputed
+   *  only when the tower roster or bonuses change, not every frame. */
+  cachedRange: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -101,6 +104,18 @@ export interface EnemyDef {
   color: string;
 }
 
+// --- Status effects (burn DoT, slow, stun, armor shred) ---
+export type StatusId = "burn" | "slow" | "stun" | "armorShred";
+
+export interface StatusInstance {
+  id: StatusId;
+  /** Simulation timestamp (world.time) at which this status expires. */
+  until: number;
+  /** Magnitude: burn = dmg/sec, slow = speed factor (0..1),
+   *  armorShred = flat armor removed, stun = unused. */
+  magnitude: number;
+}
+
 export interface Enemy {
   uid: number;
   defId: EnemyId;
@@ -108,9 +123,10 @@ export interface Enemy {
   hp: number;
   maxHp: number;
   speed: number;
-  slowUntil: number; // timestamp; while >now movement is slowed
-  slowFactor: number;
   isBoss: boolean;
+  /** Active status effects (slow/stun/burn/armorShred); ticked/expired in
+   *  EnemyManager. Replaces the former slowUntil/slowFactor pair. */
+  statuses: StatusInstance[];
 }
 
 // ---------------------------------------------------------------------------

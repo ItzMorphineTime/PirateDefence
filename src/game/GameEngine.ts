@@ -28,11 +28,13 @@ import {
   DPS_WINDOW,
   SPEED_OPTIONS,
   AUTOSAVE_INTERVAL,
-  WAVE,
+  TOWER_SLOT_COUNT,
 } from "./config";
 import { saveGame, type SaveData } from "./save";
 
 const FIXED_DT = 1 / 60;
+/** UI snapshot cadence (seconds). Decouples React re-renders from the 60fps sim. */
+const SNAPSHOT_INTERVAL = 0.1;
 
 export class GameEngine {
   world: World;
@@ -58,6 +60,7 @@ export class GameEngine {
   private lastTime = 0;
   private rafId = 0;
   private autosaveTimer = 0;
+  private snapshotTimer = 0;
   private listeners = new Set<() => void>();
   private snapshot: GameSnapshot;
 
@@ -166,8 +169,14 @@ export class GameEngine {
       saveGame(this.toSave());
     }
 
-    this.snapshot = this.buildSnapshot();
-    this.emit();
+    // Throttle UI snapshots so React re-renders at a fixed cadence rather than
+    // every animation frame. User actions still push an immediate snapshot.
+    this.snapshotTimer += realDt;
+    if (this.snapshotTimer >= SNAPSHOT_INTERVAL) {
+      this.snapshotTimer = 0;
+      this.snapshot = this.buildSnapshot();
+      this.emit();
+    }
   }
 
   private step(dt: number): void {
@@ -217,8 +226,8 @@ export class GameEngine {
       this.refreshDerived();
     }
 
-    // Enemy movement + core damage
-    this.enemies.update(w, dt);
+    // Enemy movement + core damage (also ticks status DoT/expiry)
+    this.enemies.update(w, dt, this.res, goldScale);
 
     // Abilities cooldowns
     this.abilities.update(dt);
@@ -383,6 +392,8 @@ export class GameEngine {
     this.world.bonuses = computeBonuses(this.up, this.dragons.state);
     this.world.maxIslandHp = BASE_ISLAND_HP;
     this.res.clampMana(this.world.bonuses.maxMana);
+    // Bonuses changed → cached tower ranges may be stale.
+    this.towers.recomputeRanges(this.world);
   }
 
   private showBanner(text: string, seconds: number): void {
@@ -460,11 +471,9 @@ export class GameEngine {
   slotInfo(): { index: number; pos: Vec2; occupied: boolean }[] {
     const occ = this.towers.occupiedSlots(this.world);
     const out = [];
-    for (let i = 0; i < 8; i++) {
+    for (let i = 0; i < TOWER_SLOT_COUNT; i++) {
       out.push({ index: i, pos: this.towers.slotPos(i), occupied: occ.has(i) });
     }
     return out;
   }
 }
-
-export { WAVE };

@@ -67,7 +67,6 @@ export class BattlefieldRenderer {
 
   render(): void {
     const ctx = this.ctx;
-    const w = this.engine.world;
     ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
     this.drawSea();
@@ -85,7 +84,6 @@ export class BattlefieldRenderer {
     if (this.engine.armedAbility) {
       this.drawArmedHint();
     }
-    void w;
   }
 
   private drawSea(): void {
