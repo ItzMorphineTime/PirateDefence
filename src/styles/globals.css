@@ -73,6 +73,10 @@ button:disabled {
   background: radial-gradient(circle at 50% 45%, #15324d 0%, #0b1a2c 55%, #07101c 100%);
   overflow: hidden;
 }
+.canvas-wrap {
+  position: absolute;
+  inset: 0;
+}
 .battlefield canvas {
   display: block;
   width: 100%;
@@ -301,6 +305,103 @@ button:disabled {
 .speed-btn.active { background: var(--accent); border-color: var(--accent); color: #08131e; }
 .toggle-btn { padding: 6px 10px; font-size: 11px; }
 .toggle-btn.on { background: var(--accent); border-color: var(--accent); color: #08131e; }
+.speed-controls .wave-step { align-items: center; gap: 6px; }
+.wave-step .speed-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+.wave-step-label { font-size: 11px; opacity: 0.85; min-width: 56px; text-align: center; }
+.target-wave {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  opacity: 0.85;
+}
+.target-wave input {
+  width: 52px;
+  padding: 4px 6px;
+  font-size: 11px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: inherit;
+}
+
+/* ---------- Per-tower detail popup (canvas overlay) ---------- */
+.tower-popup {
+  position: absolute;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  width: 230px;
+  max-width: calc(100% - 24px);
+  max-height: calc(100% - 24px);
+  background: rgba(12, 20, 32, 0.97);
+  border: 1px solid var(--border-bright);
+  border-radius: 8px;
+  padding: 10px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.6);
+  animation: bannerPop 0.18s ease-out;
+}
+.tower-popup-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+.tower-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 10px;
+  margin: 4px 0 10px;
+  padding: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 6px;
+}
+.tower-stats .ts-cell {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 6px;
+}
+.tower-stats .ts-label {
+  font-size: 10px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+.tower-stats .ts-value {
+  font-size: 12px;
+  font-weight: bold;
+  color: var(--text);
+}
+.tower-detail-head {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.tower-detail-head .td-title { font-size: 13px; font-weight: bold; }
+.tower-detail-head .td-close {
+  padding: 2px 8px;
+  font-size: 12px;
+  line-height: 1;
+}
+.tower-upgrade-list { display: flex; flex-direction: column; gap: 6px; }
+.tower-upgrade-btn {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-areas: "name cost" "desc cost";
+  gap: 0 8px;
+  text-align: left;
+  padding: 7px 10px;
+}
+.tower-upgrade-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.tower-upgrade-btn .tu-name { grid-area: name; font-size: 12px; font-weight: bold; }
+.tower-upgrade-btn .tu-lvl { font-weight: normal; opacity: 0.7; font-size: 10px; }
+.tower-upgrade-btn .tu-desc { grid-area: desc; font-size: 10px; opacity: 0.7; }
+.tower-upgrade-btn .tu-cost { grid-area: cost; align-self: center; font-size: 11px; }
+.tower-upgrade-btn .tu-cost .ok { color: var(--accent); }
+.tower-upgrade-btn .tu-cost .no { color: #e05858; }
 
 /* ---------- Build menu (canvas overlay) ---------- */
 .build-menu {
@@ -313,11 +414,33 @@ button:disabled {
   width: 200px;
   box-shadow: 0 6px 24px rgba(0, 0, 0, 0.6);
 }
+.build-menu .bm-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
 .build-menu .bm-title {
   font-size: 11px;
   text-transform: uppercase;
   color: var(--text-dim);
-  margin-bottom: 6px;
+}
+.build-menu .bm-list {
+  max-height: 320px;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+.bm-row {
+  margin-bottom: 4px;
+}
+.bm-row .name {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: bold;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* ---------- Header / title ---------- */

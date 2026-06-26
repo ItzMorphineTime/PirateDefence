@@ -37,6 +37,7 @@
 | Phase 6 — Corruption & Crown Shard | ⬜ Not started | Risk/reward forbidden power |
 | Phase 7 — Prestige | ⬜ Not started | `PrestigeManager`, meta-progression |
 | Phase 8 — Captains, Resources, Automation | ⬜ Not started | Depth + idle systems |
+| Phase 9 — UX & Interaction Polish | ✅ Done | 2× island + dual slot ring, circular HP gauge, click-to-upgrade towers, scrolling sea, Auto-Retry (current wave) + Next/Prev + target-wave |
 
 > Update the emoji (⬜ → 🟨 in progress → ✅ done) as each area advances.
 
@@ -329,6 +330,103 @@ next run, and survives reload.
 **Acceptance:** at least one new resource in active use, a selectable captain
 with a real effect, and one automation toggle that works while idle.
 
+### Phase 9 — UX & Interaction Polish
+
+**Goal:** Make the battlefield bigger and more legible, and the controls more
+tactile: a larger island with a second (inner) ring of tower slots, a circular
+HP bar around the shoreline, clickable build slots, animated sea, richer wave
+controls, and per-tower upgrades on click.
+
+**Depends on:** Phases 1–3 (towers/ships/waves exist). Independent of Phases 4–8;
+can land in parallel. Idea **9.5** changes the save schema → `SAVE_VERSION` bump.
+
+- [x] **9.1 Larger island + dual tower ring + circular HP bar.** Roughly double
+  the island footprint and add a **second, inner** ring of build slots so the
+  layout reads as two concentric arcs of slots. Replace the green↔red shoreline
+  stroke with a **circular progress arc** that sweeps from full to empty as
+  island HP drops (clear arc + subtle color shift, not just a two-tone swap).
+  _Grounded steps:_
+    - `config.ts`: increase `ISLAND_RADIUS` (~70→~140) and rescale dependent
+      radii so orbits/spawns stay outside the bigger island — bump
+      `TOWER_RING_RADIUS` (outer slot ring) and add `TOWER_RING_INNER_RADIUS`;
+      raise `ORBIT_RADII` (inner/middle/outer) and `SPAWN_RADIUS` proportionally.
+      Add `TOWER_SLOT_RING_COUNTS` (or split `TOWER_SLOT_COUNT` into inner/outer)
+      so total slots = inner + outer.
+    - `TowerManager.slotPos(index)`: map a flat slot index onto the two rings
+      (e.g. first N = outer ring, next M = inner ring) using the per-ring radius;
+      keep `occupiedSlots`/`slotInfo()` index-based so the UI is unchanged in API.
+    - `BattlefieldRenderer.drawIsland`: replace the hp-threshold stroke with an
+      `arc()` HP gauge (start at top, sweep `2π·hpFrac`); keep a faint full-circle
+      track underneath. Draw both slot rings in `drawSlots`.
+  _Files:_ `config.ts`, `managers/TowerManager.ts`, `render/BattlefieldRenderer.ts`,
+  possibly `GameEngine.slotInfo`.
+- [x] **9.2 Clickable build-slot "+" interaction.** Clicking a slot's "+" should
+  let the player choose which tower to place there (instead of only working when a
+  tower is pre-selected in the panel). _Grounded steps:_
+  _Shipped:_ kept the pre-select-then-click-slot placement path, and added
+  click-to-select on placed towers (`engine.towerAt` → `selectTower`) feeding the
+  new `TowerDetailPanel`; selected towers get a highlight ring in the renderer.
+    - Add a lightweight selected-slot state (App/GameCanvas) set on slot click;
+      surface a small build menu (reuse the Towers list from `UpgradePanel`/
+      `BUILDABLE_TOWERS`) anchored to that slot or in the side panel.
+    - On choice, call existing `engine.buildTower(defId, slotIndex)`; clear the
+      selected slot. Keep the current "pre-selected tower + click slot" path as a
+      fast alternative.
+  _Files:_ `ui/GameCanvas.tsx`, `ui/App.tsx`, a small `SlotBuildMenu` (or reuse
+  `UpgradePanel` Towers tab), `render/BattlefieldRenderer.ts` (highlight selected slot).
+- [x] **9.3 Scrolling sea waves.** Add simple animated wave lines/bands drifting
+  across the sea for life. _Grounded steps:_
+    - `BattlefieldRenderer.drawSea`: draw a few sine/offset wave strokes whose
+      phase advances with a time accumulator (renderer already receives frame
+      time via the render loop; thread `dt`/`world.time` if needed). Purely
+      cosmetic — no sim state, no save impact.
+  _Files:_ `render/BattlefieldRenderer.ts` (+ maybe pass `world.time`).
+- [x] **9.4 Richer wave controls.** Extend `SpeedControls` with: **Auto-Retry**
+  (on game-over, auto-reset and restart), **Next/Previous wave** (only enabled
+  when the current wave is finished/inactive), and a **target-wave number input**
+  that auto-advances up to a chosen wave. _Grounded steps:_
+  _Shipped:_ Auto-Retry performs a **soft restart of the current (highest) wave**
+  — it keeps towers/ships/upgrades, restores island HP, clears the field, and
+  replays the wave — so players can farm their best wave for gold (per user
+  feedback) rather than restarting from wave 1. `targetWave` (0 = endless) gates
+  auto-advance via `onWaveCleared`; `canStepWave` (`!waveActive && !gameOver`)
+  enables the ◀/▶ stepping. No full page reload is used.
+    - `WaveManager`: add `setWave(n)` / `jumpToWave(n)` (clamp ≥1) and a
+      `targetWave?` for auto-advance-until; `prevWave()` decrements when inactive.
+      Reuse `startNextWave()` for "Next".
+    - `GameEngine`: public `nextWave()`, `prevWave()`, `setTargetWave(n)`,
+      `toggleAutoRetry()`; on game-over, if auto-retry, `reset()` + resume.
+    - `GameSnapshot`: add `autoRetry`, `targetWave`, and a `canStepWave`
+      (true when `!waveActive && !gameOver`).
+    - `SpeedControls.tsx`: render the toggle, ◀/▶ buttons (disabled per
+      `canStepWave`), and a numeric `<input>` bound to `setTargetWave`.
+  _Files:_ `managers/WaveManager.ts`, `GameEngine.ts`, `types.ts` (GameSnapshot),
+  `ui/SpeedControls.tsx`.
+- [x] **9.5 Per-tower upgrades on click.** Clicking a placed tower opens a detail
+  panel to upgrade **that tower** (damage/range/fire-rate levels), independent of
+  the global upgrade tree. _Grounded steps:_
+    - `types.ts`: add per-tower upgrade state to `Tower` (e.g.
+      `levels: { dmg: number; range: number; rate: number }`).
+    - `TowerManager`: `upgradeTower(uid, kind)` with an **escalating gold +
+      salvage** cost curve per level; fold per-tower levels into `computeRange()`
+      and the per-shot damage/fire-interval reads (so the cached-range path stays
+      correct).
+    - `GameEngine`: `upgradeTower(uid, kind)`, `towerAt(point)` hit-test for
+      click selection; expose selected-tower info to the snapshot.
+    - `ui`: a `TowerDetailPanel` shown when a placed tower is selected (reuses
+      the existing `selectedTower`/click plumbing in `App.tsx`/`GameCanvas.tsx`).
+    - `save.ts`: **bump `SAVE_VERSION`** and add a migration that backfills
+      default `levels` on towers from older saves.
+  _Files:_ `types.ts`, `managers/TowerManager.ts`, `GameEngine.ts`,
+  `ui/GameCanvas.tsx`, `ui/App.tsx`, new `ui/TowerDetailPanel.tsx`, `save.ts`.
+
+**Acceptance:** the island is visibly larger with two usable slot rings and a
+circular HP gauge; clicking an empty slot lets you pick & place a tower; the sea
+animates; wave controls expose Auto-Retry, Next/Previous (gated on wave-finished),
+and a target-wave input that auto-advances; clicking a placed tower upgrades that
+specific tower and the per-tower levels persist across reload (with the
+`SAVE_VERSION` migration). `npm run build` passes.
+
 ---
 
 ## ✅ Definition of Done (per task)
@@ -348,6 +446,30 @@ A task is `[x]` only when **all** hold:
 
 > Newest first. One entry per meaningful change. Format: `YYYY-MM-DD — area — summary`.
 
+- 2026-06-26 — engine/ui — Implemented **Phase 9 — UX & Interaction Polish**.
+  **9.1:** doubled the island (`ISLAND_RADIUS` 70→140), added a second inner ring
+  of build slots (`TOWER_SLOT_OUTER_COUNT` 8 + `TOWER_SLOT_INNER_COUNT` 6 = 14),
+  rescaled orbit/spawn radii, and replaced the two-tone shoreline with a circular
+  HP gauge (faint track + sweeping arc, green→amber→red). **9.2/9.5:** clicking a
+  placed tower selects it (highlight ring) and opens a new `TowerDetailPanel` with
+  three independent upgrade tracks (damage/range/fire-rate) on a `Tower.levels`
+  schema, paid in escalating **gold + salvage**; per-tower levels fold into
+  `computeRange`, `perTowerDamageMult`, and `effectiveFireInterval`. **9.3:**
+  cosmetic scrolling sea-swell rings driven by `world.time`. **9.4:** richer wave
+  controls — **Auto-Retry soft-restarts the current (highest) wave** to farm gold
+  (keeps towers/ships/upgrades, restores HP, clears the field; no page reload),
+  plus ◀/▶ Next/Prev (gated on `canStepWave`) and a target-wave input (0 = endless)
+  that stops auto-advance. Bumped `SAVE_VERSION` 1→2 with a migration backfilling
+  `levels`/`autoRetry`/`targetWave`. `npm run build` passes.
+- 2026-06-26 — docs — Expanded the plan with **Phase 9 — UX & Interaction Polish**
+  capturing five new feature ideas: (9.1) ~2× larger island with a second inner
+  ring of tower slots and a circular HP progress-arc shoreline; (9.2) clickable
+  build-slot "+" interaction to pick & place a tower; (9.3) animated scrolling sea
+  waves; (9.4) richer wave controls (Auto-Retry, Next/Previous gated on
+  wave-finished, target-wave auto-advance input); (9.5) per-tower upgrades on click
+  with a new `Tower.levels` schema (+`SAVE_VERSION` bump/migration). Added a
+  Dashboard row and an Open Decision for the per-tower upgrade/cost model and island
+  rescale factor.
 - 2026-06-23 — engine — Completed Phase 3 (Fleet Expansion): added Brigantine
   (splash), Harpoon Schooner (slow-on-hit), Ghost Frigate (armor-piercing), and
   the Dragonwake Man-o'-War (capital ship on the previously unused outer ring with
@@ -398,3 +520,13 @@ A task is `[x]` only when **all** hold:
 - [!] **Faction selection** (Phase 5): one faction per run, per region, or
   rotating by wave band?
 - [!] **Prestige currency source** (Phase 7): waves, bosses, trust, or a blend?
+- [x] **Per-tower upgrade model** (Phase 9.5): ~~independent levels vs single
+  tier; gold-only vs gold+salvage cost.~~ **Resolved:** three independent
+  per-tower levels (`Tower.levels = { dmg, range, rate }`) stacking on top of the
+  global upgrade tree, with an **escalating gold + salvage** cost per level.
+  Requires a `SAVE_VERSION` bump + migration backfilling default `levels`.
+- [x] **Island rescale factor** (Phase 9.1): ~~how aggressive the rescale is.~~
+  **Resolved:** ~2× island — `ISLAND_RADIUS` 70→140, and **proportionally** raise
+  `TOWER_RING_RADIUS` (+ new inner ring), `ORBIT_RADII` (inner/middle/outer), and
+  `SPAWN_RADIUS` so the layout still fits the 1000×800 virtual viewport with both
+  slot rings visible.

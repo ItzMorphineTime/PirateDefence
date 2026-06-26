@@ -26,6 +26,7 @@ export function App() {
       <div className="battlefield">
         <GameCanvas
           engine={engine}
+          snap={snap}
           selectedTower={selectedTower}
           onSelectTower={setSelectedTower}
         />

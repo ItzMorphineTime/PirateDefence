@@ -9,21 +9,25 @@ export const VIRT_H = 800;
 export const CENTER = { x: VIRT_W / 2, y: VIRT_H / 2 };
 
 /** Island core radius (enemies reaching this damage the core). */
-export const ISLAND_RADIUS = 70;
+export const ISLAND_RADIUS = 140;
 
-/** Radius of the ring of tower build slots on the island. */
-export const TOWER_RING_RADIUS = 110;
-export const TOWER_SLOT_COUNT = 8;
+/** Radii of the two concentric rings of tower build slots on the island. */
+export const TOWER_RING_RADIUS = 185; // outer slot ring
+export const TOWER_RING_INNER_RADIUS = 110; // inner slot ring
+/** Slots per ring; total build slots = outer + inner. */
+export const TOWER_SLOT_OUTER_COUNT = 8;
+export const TOWER_SLOT_INNER_COUNT = 6;
+export const TOWER_SLOT_COUNT = TOWER_SLOT_OUTER_COUNT + TOWER_SLOT_INNER_COUNT;
 
-/** Orbit ring radii for ships. */
+/** Orbit ring radii for ships (scaled out past the larger island + slot rings). */
 export const ORBIT_RADII = {
-  inner: 170,
-  middle: 230,
-  outer: 300,
+  inner: 245,
+  middle: 305,
+  outer: 365,
 };
 
 /** Enemies spawn just outside this radius. */
-export const SPAWN_RADIUS = 470;
+export const SPAWN_RADIUS = 480;
 
 export const BASE_ISLAND_HP = 100;
 
@@ -70,12 +74,27 @@ export const STATUS = {
   shredAmount: 3, // flat armor removed
 };
 
+// --- Per-tower upgrades (Phase 9.5) ---
+// Each placed tower can be individually upgraded by clicking it. Effects stack
+// on top of the global upgrade tree. Cost scales with the tower's current level
+// for that kind, paid in gold + salvage.
+export const TOWER_UPGRADE = {
+  maxLevel: 5,
+  dmgPerLevel: 0.25, // +25% damage per level (multiplicative)
+  rangePerLevel: 14, // +14 flat range per level
+  ratePerLevel: 0.08, // -8% fire interval per level (faster), capped below
+  rateFloor: 0.4, // fire interval can't drop below 40% of base
+  costGoldBase: 60,
+  costSalvageBase: 20,
+  costGrowth: 1.6, // multiplier per existing level
+};
+
 // --- Speed multipliers ---
 export const SPEED_OPTIONS = [1, 3, 6];
 
 // --- Save ---
 export const SAVE_KEY = "tidehold_save_v1";
-export const SAVE_VERSION = 1;
+export const SAVE_VERSION = 2;
 export const AUTOSAVE_INTERVAL = 8; // seconds (real time)
 
 /** DPS is averaged over this rolling window (seconds). */

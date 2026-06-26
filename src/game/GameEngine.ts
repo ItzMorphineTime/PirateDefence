@@ -1,8 +1,11 @@
 import type {
   AbilityId,
   GameSnapshot,
+  SelectedTowerInfo,
+  SelectedTowerUpgrade,
   ShipId,
   TowerId,
+  TowerUpgradeKind,
   UpgradeId,
   Vec2,
   ResourceMap,
@@ -50,7 +53,18 @@ export class GameEngine {
 
   speed = 1;
   autoAdvance = true;
+  autoRetry = false;
+  /** Auto-advance stops once this wave is cleared (0 = endless). */
+  targetWave = 0;
   gameOver = false;
+  /**
+   * True while we are idle between waves (current wave cleared, next not yet
+   * started). Guards `onWaveCleared` so its rewards fire exactly once per wave
+   * rather than every idle step.
+   */
+  private betweenWaves = false;
+  /** Uid of the placed tower currently selected for per-tower upgrades. */
+  selectedTowerUid: number | null = null;
   armedAbility: AbilityId | null = null;
   bannerText: string | null = null;
   private bannerTimer = 0;
@@ -102,9 +116,11 @@ export class GameEngine {
   private applySave(save: SaveData): void {
     this.waves.load(save.wave);
     this.autoAdvance = save.autoAdvance ?? true;
-    // Rebuild towers
+    this.autoRetry = save.autoRetry ?? false;
+    this.targetWave = save.targetWave ?? 0;
+    // Rebuild towers (with their per-tower upgrade levels)
     for (const t of save.towers ?? []) {
-      this.towers.build(this.world, t.defId, t.slotIndex);
+      this.towers.build(this.world, t.defId, t.slotIndex, t.levels);
     }
     // Rebuild ships
     for (const id of Object.keys(save.shipsOwned ?? {}) as ShipId[]) {
@@ -116,15 +132,18 @@ export class GameEngine {
 
   toSave(): SaveData {
     return {
-      version: 1,
+      version: 2,
       resources: this.res.res,
       upgrades: this.up.levels,
       wave: this.waves.wave,
       islandHp: this.world.islandHp,
       autoAdvance: this.autoAdvance,
+      autoRetry: this.autoRetry,
+      targetWave: this.targetWave,
       towers: this.world.towers.map((t) => ({
         defId: t.defId,
         slotIndex: t.slotIndex,
+        levels: { ...t.levels },
       })),
       shipsOwned: { ...this.world.shipsOwned },
       dragon: this.dragons.state,
@@ -195,7 +214,11 @@ export class GameEngine {
     this.towers.update(w, dt, (tower, target) => {
       const def: TowerDef = TOWER_DEFS[tower.defId];
       const auraMult = this.towers.damageAuraMult(w, tower);
-      const dmg = def.damage * w.bonuses.towerDamageMult(tower.defId) * auraMult;
+      const dmg =
+        def.damage *
+        w.bonuses.towerDamageMult(tower.defId) *
+        auraMult *
+        this.towers.perTowerDamageMult(tower);
       this.projectiles.spawn(
         w,
         tower.pos,
@@ -253,16 +276,42 @@ export class GameEngine {
     const cutoff = w.time - DPS_WINDOW;
     w.damageEvents = w.damageEvents.filter((d) => d.t >= cutoff);
 
-    // Wave end → auto-advance + rewards
+    // Wave end → auto-advance + rewards (fires once per wave via betweenWaves)
     if (!this.waves.active && w.enemies.length === 0) {
-      this.onWaveCleared();
+      if (!this.betweenWaves) {
+        this.betweenWaves = true;
+        this.onWaveCleared();
+      }
     }
 
     // Island destroyed
     if (w.islandHp <= 0 && !this.gameOver) {
-      this.gameOver = true;
-      this.showBanner("The Tidehold Has Fallen", 9999);
+      if (this.autoRetry) {
+        this.retryCurrentWave();
+      } else {
+        this.gameOver = true;
+        this.showBanner("The Tidehold Has Fallen", 9999);
+      }
     }
+  }
+
+  /**
+   * Soft-restart the current (highest reached) wave: keep towers, ships, and
+   * upgrades, restore island HP, clear the battlefield, and re-run this wave.
+   * Lets players farm their best wave for gold without losing progress.
+   */
+  private retryCurrentWave(): void {
+    const w = this.world;
+    const wave = Math.max(1, this.waves.wave);
+    w.islandHp = w.maxIslandHp;
+    w.enemies = [];
+    w.projectiles = [];
+    w.effects = [];
+    this.betweenWaves = false;
+    // Rewind to just before this wave so startWave() replays it.
+    this.waves.load(wave - 1);
+    this.showBanner(`Auto-Retry: Wave ${wave}`, 2.5);
+    this.startWave();
   }
 
   private onWaveCleared(): void {
@@ -283,8 +332,19 @@ export class GameEngine {
       };
     }
 
-    if (this.autoAdvance && !this.gameOver) {
+    // Auto-advance unless a target wave is set and already reached.
+    const reachedTarget =
+      this.targetWave > 0 && this.waves.wave >= this.targetWave;
+    if (this.autoAdvance && !reachedTarget && !this.gameOver) {
       this.startWave();
+    } else if (this.autoAdvance && reachedTarget && !this.gameOver) {
+      // Auto-advance hit the stop wave: switch to Auto-Retry to keep farming it.
+      if (!this.autoRetry) {
+        this.autoRetry = true;
+        this.showBanner(`Target Wave ${this.targetWave} — Auto-Retry On`, 3);
+      }
+      // Replay the target wave immediately.
+      this.retryCurrentWave();
     }
   }
 
@@ -292,6 +352,7 @@ export class GameEngine {
   startWave(): void {
     if (this.gameOver || this.waves.active) return;
     this.waves.startNextWave();
+    this.betweenWaves = false;
     const w = this.waves.wave;
     if (this.waves.isBossWave(w)) {
       this.showBanner(`Wave ${w}: Egg-Runner Captain`, 4);
@@ -383,6 +444,61 @@ export class GameEngine {
     this.pushSnapshot();
   }
 
+  toggleAutoRetry(): void {
+    this.autoRetry = !this.autoRetry;
+    this.pushSnapshot();
+  }
+
+  /** Set the wave at which auto-advance should stop (0 = endless). */
+  setTargetWave(n: number): void {
+    this.targetWave = Math.max(0, Math.floor(n));
+    this.pushSnapshot();
+  }
+
+  /** True only when no wave is in progress (so stepping is safe). */
+  canStepWave(): boolean {
+    return !this.waves.active && !this.gameOver;
+  }
+
+  /** Advance to the next wave (between waves only). */
+  nextWave(): void {
+    if (!this.canStepWave()) return;
+    this.startWave();
+  }
+
+  /** Step back one wave so the next start replays a lower wave (between waves). */
+  prevWave(): void {
+    if (!this.canStepWave()) return;
+    const target = Math.max(0, this.waves.wave - 1);
+    this.waves.load(target);
+    this.pushSnapshot();
+  }
+
+  // --------------------------------------------------- per-tower upgrades
+  /** Select (or deselect) a placed tower by its uid for the detail panel. */
+  selectTower(uid: number | null): void {
+    this.selectedTowerUid =
+      uid !== null && this.selectedTowerUid === uid ? null : uid;
+    this.pushSnapshot();
+  }
+
+  /** Nearest placed tower to a battlefield point (for click-to-select). */
+  towerAt(point: Vec2) {
+    return this.towers.towerAt(this.world, point);
+  }
+
+  /** Buy one upgrade level (dmg/range/rate) for the selected tower. */
+  upgradeSelectedTower(kind: TowerUpgradeKind): boolean {
+    if (this.selectedTowerUid === null) return false;
+    const tower = this.towers.byUid(this.world, this.selectedTowerUid);
+    if (!tower || this.towers.isMaxed(tower, kind)) return false;
+    const cost = this.towers.upgradeCost(tower, kind);
+    if (!this.res.spend(cost)) return false;
+    this.towers.applyUpgrade(this.world, tower, kind);
+    this.pushSnapshot();
+    return true;
+  }
+
   claimEgg(): void {
     this.dragons.claimEgg();
     this.eventToast = null;
@@ -432,11 +548,15 @@ export class GameEngine {
       timeSurvived: w.time,
       speed: this.speed,
       autoAdvance: this.autoAdvance,
+      autoRetry: this.autoRetry,
+      targetWave: this.targetWave,
+      canStepWave: this.canStepWave(),
       gameOver: this.gameOver,
       bossWave: this.waves.isBossWave(),
       upgradeLevels: { ...this.up.levels },
       shipsOwned: { ...w.shipsOwned },
       towerCount: w.towers.length,
+      selectedTower: this.selectedTowerInfo(),
       abilities: {
         barrage: { ...this.abilities.states.barrage },
         rally: { ...this.abilities.states.rally },
@@ -447,6 +567,52 @@ export class GameEngine {
       armedAbility: this.armedAbility,
       bannerText: this.bannerText,
       eventToast: this.eventToast,
+    };
+  }
+
+  /** Build the detail snapshot for the currently-selected tower, if any. */
+  private selectedTowerInfo(): SelectedTowerInfo | null {
+    if (this.selectedTowerUid === null) return null;
+    const tower = this.towers.byUid(this.world, this.selectedTowerUid);
+    if (!tower) return null;
+    const def = TOWER_DEFS[tower.defId];
+    const kind = (k: TowerUpgradeKind): SelectedTowerUpgrade => ({
+      level: tower.levels[k],
+      maxed: this.towers.isMaxed(tower, k),
+      cost: this.towers.upgradeCost(tower, k),
+    });
+
+    // Live, effective combat stats (mirrors the firing math in step()).
+    const support = def.damage <= 0 || def.fireInterval <= 0;
+    const damage =
+      def.damage *
+      this.world.bonuses.towerDamageMult(tower.defId) *
+      this.towers.damageAuraMult(this.world, tower) *
+      this.towers.perTowerDamageMult(tower);
+    const fireInterval = this.towers.effectiveFireInterval(tower);
+    const fireRate = fireInterval > 0 ? 1 / fireInterval : 0;
+    const stats = {
+      damage,
+      fireInterval,
+      fireRate,
+      range: this.towers.effectiveRange(this.world, tower),
+      dps: support ? 0 : damage * fireRate,
+      splash: def.splash,
+      bossMultiplier: def.bossMultiplier,
+      status: def.appliesStatus,
+      support,
+    };
+
+    return {
+      uid: tower.uid,
+      defId: tower.defId,
+      name: def.name,
+      desc: def.desc,
+      slotIndex: tower.slotIndex,
+      stats,
+      dmg: kind("dmg"),
+      range: kind("range"),
+      rate: kind("rate"),
     };
   }
 

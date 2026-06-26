@@ -1,21 +1,59 @@
-import type { Tower, TowerId, Enemy, Vec2 } from "../types";
+import type {
+  Tower,
+  TowerId,
+  TowerLevels,
+  TowerUpgradeKind,
+  Enemy,
+  Vec2,
+  ResourceMap,
+} from "../types";
 import type { World } from "../world";
 import { TOWER_DEFS } from "../data/towers";
-import { TOWER_RING_RADIUS, TOWER_SLOT_COUNT, CENTER } from "../config";
+import {
+  TOWER_RING_RADIUS,
+  TOWER_RING_INNER_RADIUS,
+  TOWER_SLOT_COUNT,
+  TOWER_SLOT_OUTER_COUNT,
+  TOWER_SLOT_INNER_COUNT,
+  TOWER_UPGRADE,
+  CENTER,
+} from "../config";
 import { dist, nextUid, pointOnCircle } from "../math";
 
+/** Fresh per-tower upgrade levels (all zero). */
+export function defaultTowerLevels(): TowerLevels {
+  return { dmg: 0, range: 0, rate: 0 };
+}
+
 export class TowerManager {
-  /** World-space position of a build slot. */
+  /**
+   * World-space position of a build slot. Flat indices `0..TOWER_SLOT_COUNT-1`
+   * map onto two concentric rings: the first `TOWER_SLOT_OUTER_COUNT` indices
+   * fill the outer ring, the remainder fill the inner ring (staggered).
+   */
   slotPos(index: number): Vec2 {
-    const angle = (index / TOWER_SLOT_COUNT) * Math.PI * 2 - Math.PI / 2;
-    return pointOnCircle(CENTER, TOWER_RING_RADIUS, angle);
+    if (index < TOWER_SLOT_OUTER_COUNT) {
+      const angle = (index / TOWER_SLOT_OUTER_COUNT) * Math.PI * 2 - Math.PI / 2;
+      return pointOnCircle(CENTER, TOWER_RING_RADIUS, angle);
+    }
+    const innerIndex = index - TOWER_SLOT_OUTER_COUNT;
+    const angle =
+      (innerIndex / TOWER_SLOT_INNER_COUNT) * Math.PI * 2 -
+      Math.PI / 2 +
+      Math.PI / TOWER_SLOT_INNER_COUNT;
+    return pointOnCircle(CENTER, TOWER_RING_INNER_RADIUS, angle);
   }
 
   occupiedSlots(world: World): Set<number> {
     return new Set(world.towers.map((t) => t.slotIndex));
   }
 
-  build(world: World, defId: TowerId, slotIndex: number): Tower | null {
+  build(
+    world: World,
+    defId: TowerId,
+    slotIndex: number,
+    levels: TowerLevels = defaultTowerLevels()
+  ): Tower | null {
     if (slotIndex < 0 || slotIndex >= TOWER_SLOT_COUNT) return null;
     if (this.occupiedSlots(world).has(slotIndex)) return null;
     const tower: Tower = {
@@ -25,6 +63,7 @@ export class TowerManager {
       slotIndex,
       cooldown: 0,
       cachedRange: 0,
+      levels: { ...levels },
     };
     world.towers.push(tower);
     this.recomputeRanges(world);
@@ -46,11 +85,13 @@ export class TowerManager {
     return tower.cachedRange;
   }
 
-  /** Compute effective range including upgrades + watchtower auras. */
+  /** Compute effective range including upgrades + watchtower auras + per-tower. */
   private computeRange(world: World, tower: Tower): number {
     const def = TOWER_DEFS[tower.defId];
     if (def.range <= 0) return 0;
     let range = def.range + world.bonuses.towerRangeFlat(tower.defId);
+    // Per-tower range upgrades (flat).
+    range += tower.levels.range * TOWER_UPGRADE.rangePerLevel;
     // Apply watchtower auras
     for (const t of world.towers) {
       if (t.defId !== "watchtower" || t.uid === tower.uid) continue;
@@ -60,6 +101,21 @@ export class TowerManager {
       }
     }
     return range;
+  }
+
+  /** Per-tower damage multiplier from this tower's own `dmg` upgrade level. */
+  perTowerDamageMult(tower: Tower): number {
+    return 1 + tower.levels.dmg * TOWER_UPGRADE.dmgPerLevel;
+  }
+
+  /** Effective fire interval for a tower, reduced by its `rate` upgrade level. */
+  effectiveFireInterval(tower: Tower): number {
+    const base = TOWER_DEFS[tower.defId].fireInterval;
+    const mult = Math.max(
+      TOWER_UPGRADE.rateFloor,
+      1 - tower.levels.rate * TOWER_UPGRADE.ratePerLevel
+    );
+    return base * mult;
   }
 
   /** Tick all towers: target acquisition + firing (spawns projectiles). */
@@ -78,7 +134,7 @@ export class TowerManager {
       if (!target) continue;
 
       fireProjectile(tower, target);
-      tower.cooldown = def.fireInterval;
+      tower.cooldown = this.effectiveFireInterval(tower);
     }
   }
 
@@ -120,5 +176,48 @@ export class TowerManager {
       }
     }
     return mult;
+  }
+
+  // ----------------------------------------------------- per-tower upgrades
+  byUid(world: World, uid: number): Tower | null {
+    return world.towers.find((t) => t.uid === uid) ?? null;
+  }
+
+  /** Nearest tower to a world point within `tolerance` (virtual units). */
+  towerAt(world: World, point: Vec2, tolerance = 20): Tower | null {
+    let best: Tower | null = null;
+    let bestD = tolerance;
+    for (const t of world.towers) {
+      const d = dist(t.pos, point);
+      if (d < bestD) {
+        bestD = d;
+        best = t;
+      }
+    }
+    return best;
+  }
+
+  /** True once a tower's upgrade kind has hit the max level. */
+  isMaxed(tower: Tower, kind: TowerUpgradeKind): boolean {
+    return tower.levels[kind] >= TOWER_UPGRADE.maxLevel;
+  }
+
+  /** Gold+salvage cost to buy the next level of `kind` for this tower. */
+  upgradeCost(tower: Tower, kind: TowerUpgradeKind): Partial<ResourceMap> {
+    const lvl = tower.levels[kind];
+    const scale = Math.pow(TOWER_UPGRADE.costGrowth, lvl);
+    return {
+      gold: Math.round(TOWER_UPGRADE.costGoldBase * scale),
+      salvage: Math.round(TOWER_UPGRADE.costSalvageBase * scale),
+    };
+  }
+
+  /**
+   * Apply one upgrade level of `kind` to a tower (caller has already spent the
+   * cost). Recomputes ranges since dmg/range/rate may shift the cached value.
+   */
+  applyUpgrade(world: World, tower: Tower, kind: TowerUpgradeKind): void {
+    tower.levels[kind]++;
+    this.recomputeRanges(world);
   }
 }

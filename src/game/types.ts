@@ -75,6 +75,16 @@ export interface TowerDef {
   damageAura?: number;
 }
 
+/** Per-tower upgrade kinds (independent of the global upgrade tree). */
+export type TowerUpgradeKind = "dmg" | "range" | "rate";
+
+/** Individual upgrade levels for a single placed tower (Phase 9.5). */
+export interface TowerLevels {
+  dmg: number;
+  range: number;
+  rate: number;
+}
+
 export interface Tower {
   uid: number;
   defId: TowerId;
@@ -84,6 +94,8 @@ export interface Tower {
   /** Cached effective range (def + upgrades + watchtower auras). Recomputed
    *  only when the tower roster or bonuses change, not every frame. */
   cachedRange: number;
+  /** Per-tower upgrade levels, bought by clicking the placed tower. */
+  levels: TowerLevels;
 }
 
 // ---------------------------------------------------------------------------
@@ -274,6 +286,48 @@ export interface DragonState {
   trust: number;
 }
 
+/** Per-upgrade-kind detail for the selected tower's detail panel. */
+export interface SelectedTowerUpgrade {
+  level: number;
+  maxed: boolean;
+  cost: Partial<ResourceMap>;
+}
+
+/** Live combat stats for the selected tower (computed, read-only display). */
+export interface SelectedTowerStats {
+  /** Effective per-shot damage (base × global × aura × per-tower). */
+  damage: number;
+  /** Seconds between shots after rate upgrades. */
+  fireInterval: number;
+  /** Shots per second (1 / fireInterval). */
+  fireRate: number;
+  /** Effective range (def + upgrades + auras). */
+  range: number;
+  /** Sustained single-target damage per second (damage × fireRate). */
+  dps: number;
+  /** Splash radius (0 = single target). */
+  splash: number;
+  /** Bonus damage multiplier vs bosses. */
+  bossMultiplier: number;
+  /** Status effect this tower applies, if any. */
+  status?: StatusApplication;
+  /** True for support towers (auras, no projectiles). */
+  support: boolean;
+}
+
+/** Snapshot of the currently-selected placed tower (for the detail panel). */
+export interface SelectedTowerInfo {
+  uid: number;
+  defId: TowerId;
+  name: string;
+  desc: string;
+  slotIndex: number;
+  stats: SelectedTowerStats;
+  dmg: SelectedTowerUpgrade;
+  range: SelectedTowerUpgrade;
+  rate: SelectedTowerUpgrade;
+}
+
 // ---------------------------------------------------------------------------
 // Snapshot exposed to React UI (read-only, throttled)
 // ---------------------------------------------------------------------------
@@ -289,11 +343,15 @@ export interface GameSnapshot {
   timeSurvived: number;
   speed: number;
   autoAdvance: boolean;
+  autoRetry: boolean;
+  targetWave: number;
+  canStepWave: boolean;
   gameOver: boolean;
   bossWave: boolean;
   upgradeLevels: Record<UpgradeId, number>;
   shipsOwned: Record<ShipId, number>;
   towerCount: number;
+  selectedTower: SelectedTowerInfo | null;
   abilities: Record<AbilityId, AbilityState>;
   dragon: DragonState;
   armedAbility: AbilityId | null;

@@ -3,6 +3,7 @@ import type {
   ResourceMap,
   ShipId,
   TowerId,
+  TowerLevels,
   UpgradeId,
 } from "./types";
 import { SAVE_KEY, SAVE_VERSION } from "./config";
@@ -14,7 +15,9 @@ export interface SaveData {
   wave: number;
   islandHp: number;
   autoAdvance: boolean;
-  towers: { defId: TowerId; slotIndex: number }[];
+  autoRetry: boolean;
+  targetWave: number;
+  towers: { defId: TowerId; slotIndex: number; levels: TowerLevels }[];
   shipsOwned: Record<ShipId, number>;
   dragon: DragonState;
 }
@@ -43,7 +46,21 @@ type AnySave = Record<string, unknown> & { version?: number };
  *   1: (old) => ({ ...old, version: 2, newField: defaultValue }),
  */
 const MIGRATIONS: Record<number, (save: AnySave) => AnySave> = {
-  // (no migrations yet — v1 is the initial schema)
+  // v1 -> v2: per-tower upgrade levels + richer wave controls (auto-retry,
+  // target wave). Backfill new fields so existing saves keep working.
+  1: (old) => {
+    const towers = Array.isArray(old.towers) ? old.towers : [];
+    return {
+      ...old,
+      version: 2,
+      autoRetry: false,
+      targetWave: 0,
+      towers: towers.map((t) => ({
+        ...(t as Record<string, unknown>),
+        levels: { dmg: 0, range: 0, rate: 0 },
+      })),
+    };
+  },
 };
 
 export function loadGame(): SaveData | null {

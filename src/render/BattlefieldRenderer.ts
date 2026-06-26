@@ -16,6 +16,24 @@ import {
 } from "../game/config";
 import type { Vec2 } from "../game/types";
 
+/**
+ * Cosmetic horizontal sinewave swell. Several layered rows of sine curves
+ * scroll sideways across the sea at different speeds, amplitudes, and tints to
+ * fake parallax ocean movement. Purely decorative.
+ */
+const SEA_WAVE_ROWS = 9; // number of horizontal sinewave bands down the canvas
+const SEA_WAVE_LAYERS: {
+  amp: number; // vertical wave height (virtual units)
+  len: number; // horizontal wavelength (virtual units)
+  speed: number; // horizontal scroll speed (virtual units / sec)
+  color: string;
+  width: number;
+}[] = [
+  { amp: 7, len: 240, speed: 26, color: "rgba(120,180,220,0.16)", width: 2.2 },
+  { amp: 5, len: 170, speed: -18, color: "rgba(150,205,235,0.13)", width: 1.6 },
+  { amp: 3.5, len: 110, speed: 34, color: "rgba(90,150,195,0.10)", width: 1.2 },
+];
+
 export class BattlefieldRenderer {
   private ctx: CanvasRenderingContext2D;
   private scale = 1;
@@ -55,6 +73,17 @@ export class BattlefieldRenderer {
     };
   }
 
+  /**
+   * Convert virtual coords to CSS pixels relative to the canvas element (no
+   * dpr). Used to anchor HTML overlays (build menu / tower popup) on the map.
+   */
+  toScreen(v: Vec2): Vec2 {
+    return {
+      x: this.offsetX + v.x * this.scale,
+      y: this.offsetY + v.y * this.scale,
+    };
+  }
+
   private tx(x: number): number {
     return this.offsetX * this.dpr + x * this.scale * this.dpr;
   }
@@ -88,11 +117,61 @@ export class BattlefieldRenderer {
 
   private drawSea(): void {
     const ctx = this.ctx;
+    const cx = this.tx(CENTER.x);
+    const cy = this.ty(CENTER.y);
+    const time = this.engine.world.time;
+
+    // Horizontal scrolling sinewaves across the whole sea. We clip to the sea
+    // annulus (inside the spawn perimeter, outside the island) so the swell only
+    // appears on water, then draw several parallax layers of sine curves that
+    // scroll sideways and bob over time.
+    ctx.save();
+    ctx.beginPath();
+    // Outer bound = spawn perimeter disk.
+    ctx.arc(cx, cy, this.s(SPAWN_RADIUS), 0, Math.PI * 2);
+    // Inner bound = island shoreline (counter-clockwise → even-odd hole).
+    ctx.arc(cx, cy, this.s(ISLAND_RADIUS + 18), 0, Math.PI * 2, true);
+    ctx.clip("evenodd");
+
+    const top = CENTER.y - SPAWN_RADIUS;
+    const bottom = CENTER.y + SPAWN_RADIUS;
+    const left = CENTER.x - SPAWN_RADIUS;
+    const right = CENTER.x + SPAWN_RADIUS;
+    const rowGap = (bottom - top) / SEA_WAVE_ROWS;
+
+    for (const layer of SEA_WAVE_LAYERS) {
+      ctx.strokeStyle = layer.color;
+      ctx.lineWidth = this.s(layer.width);
+      const k = (Math.PI * 2) / layer.len; // angular wavenumber
+      const shift = time * layer.speed; // horizontal scroll offset
+      for (let row = 0; row <= SEA_WAVE_ROWS; row++) {
+        const baseY = top + row * rowGap;
+        // Stagger each row's phase so crests don't line up vertically.
+        const rowPhase = row * 0.9;
+        ctx.beginPath();
+        let started = false;
+        for (let vx = left; vx <= right; vx += 8) {
+          const vy =
+            baseY + layer.amp * Math.sin(k * (vx + shift) + rowPhase);
+          const px = this.tx(vx);
+          const py = this.ty(vy);
+          if (!started) {
+            ctx.moveTo(px, py);
+            started = true;
+          } else {
+            ctx.lineTo(px, py);
+          }
+        }
+        ctx.stroke();
+      }
+    }
+    ctx.restore();
+
     // faint spawn perimeter
     ctx.strokeStyle = "rgba(80,130,170,0.15)";
     ctx.lineWidth = this.s(2);
     ctx.beginPath();
-    ctx.arc(this.tx(CENTER.x), this.ty(CENTER.y), this.s(SPAWN_RADIUS), 0, Math.PI * 2);
+    ctx.arc(cx, cy, this.s(SPAWN_RADIUS), 0, Math.PI * 2);
     ctx.stroke();
   }
 
@@ -119,7 +198,10 @@ export class BattlefieldRenderer {
     ctx.fill();
 
     // Island core
-    const hpFrac = this.engine.world.islandHp / this.engine.world.maxIslandHp;
+    const hpFrac = Math.max(
+      0,
+      this.engine.world.islandHp / this.engine.world.maxIslandHp
+    );
     ctx.beginPath();
     ctx.arc(cx, cy, this.s(ISLAND_RADIUS), 0, Math.PI * 2);
     const grad = ctx.createRadialGradient(cx, cy, this.s(10), cx, cy, this.s(ISLAND_RADIUS));
@@ -127,24 +209,41 @@ export class BattlefieldRenderer {
     grad.addColorStop(1, "#243b2a");
     ctx.fillStyle = grad;
     ctx.fill();
-    ctx.lineWidth = this.s(3);
-    ctx.strokeStyle = hpFrac > 0.35 ? "#5ad17e" : "#e05858";
+
+    // Circular HP gauge around the shoreline: a faint full-circle track plus a
+    // bright arc that sweeps from full (12 o'clock, clockwise) down to empty as
+    // island HP drops. Color eases from green → amber → red with HP.
+    const gaugeR = this.s(ISLAND_RADIUS + 6);
+    const start = -Math.PI / 2; // 12 o'clock
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.arc(cx, cy, gaugeR, 0, Math.PI * 2);
+    ctx.strokeStyle = "rgba(255,255,255,0.08)";
+    ctx.lineWidth = this.s(4);
     ctx.stroke();
+    if (hpFrac > 0) {
+      ctx.beginPath();
+      ctx.arc(cx, cy, gaugeR, start, start + Math.PI * 2 * hpFrac);
+      ctx.strokeStyle = hpGaugeColor(hpFrac);
+      ctx.lineWidth = this.s(5);
+      ctx.stroke();
+    }
+    ctx.lineCap = "butt";
 
     // Nursery marker (if egg claimed)
     if (this.engine.dragons.state.eggClaimed) {
       ctx.beginPath();
-      ctx.arc(cx, cy, this.s(16), 0, Math.PI * 2);
+      ctx.arc(cx, cy, this.s(24), 0, Math.PI * 2);
       ctx.fillStyle = "#c77dff";
       ctx.fill();
       ctx.fillStyle = "#fff";
-      ctx.font = `${this.s(16)}px serif`;
+      ctx.font = `${this.s(24)}px serif`;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       ctx.fillText("🥚", cx, cy);
     } else {
       ctx.fillStyle = "rgba(255,255,255,0.5)";
-      ctx.font = `bold ${this.s(13)}px sans-serif`;
+      ctx.font = `bold ${this.s(18)}px sans-serif`;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       ctx.fillText("TIDEHOLD", cx, cy);
@@ -175,33 +274,49 @@ export class BattlefieldRenderer {
     }
   }
 
+  /**
+   * Draw the range (or support-aura) ring only for the currently selected
+   * tower. Showing every tower's range at once was visually noisy; the ring is
+   * now a deliberate, clearly-visible indicator tied to selection.
+   */
   private drawTowerRanges(): void {
     const ctx = this.ctx;
-    for (const tower of this.engine.world.towers) {
-      const def = TOWER_DEFS[tower.defId];
-      if (def.range <= 0) {
-        // Support aura ring (Watchtower range aura or Ember Shrine damage aura).
-        const aura = def.auraRadius ?? 0;
-        if (aura > 0) {
-          ctx.beginPath();
-          ctx.arc(this.tx(tower.pos.x), this.ty(tower.pos.y), this.s(aura), 0, Math.PI * 2);
-          // Tint the ring by the support type: damage auras glow with the
-          // tower's own color; range auras use the cool watchtower blue.
-          ctx.strokeStyle = def.damageAura
-            ? hexAlpha(def.color, 0.18)
-            : "rgba(110,168,216,0.12)";
-          ctx.lineWidth = this.s(1);
-          ctx.stroke();
-        }
-        continue;
+    const selectedUid = this.engine.selectedTowerUid;
+    if (selectedUid == null) return;
+    const tower = this.engine.world.towers.find((t) => t.uid === selectedUid);
+    if (!tower) return;
+
+    const def = TOWER_DEFS[tower.defId];
+    const x = this.tx(tower.pos.x);
+    const y = this.ty(tower.pos.y);
+
+    if (def.range <= 0) {
+      // Support aura ring (Watchtower range aura or Ember Shrine damage aura).
+      const aura = def.auraRadius ?? 0;
+      if (aura > 0) {
+        ctx.beginPath();
+        ctx.arc(x, y, this.s(aura), 0, Math.PI * 2);
+        ctx.fillStyle = def.damageAura
+          ? hexAlpha(def.color, 0.10)
+          : "rgba(110,168,216,0.08)";
+        ctx.fill();
+        ctx.strokeStyle = def.damageAura
+          ? hexAlpha(def.color, 0.55)
+          : "rgba(110,168,216,0.5)";
+        ctx.lineWidth = this.s(1.5);
+        ctx.stroke();
       }
-      const range = this.engine.towers.effectiveRange(this.engine.world, tower);
-      ctx.beginPath();
-      ctx.arc(this.tx(tower.pos.x), this.ty(tower.pos.y), this.s(range), 0, Math.PI * 2);
-      ctx.strokeStyle = "rgba(255,255,255,0.05)";
-      ctx.lineWidth = this.s(1);
-      ctx.stroke();
+      return;
     }
+
+    const range = this.engine.towers.effectiveRange(this.engine.world, tower);
+    ctx.beginPath();
+    ctx.arc(x, y, this.s(range), 0, Math.PI * 2);
+    ctx.fillStyle = "rgba(255,214,102,0.06)";
+    ctx.fill();
+    ctx.strokeStyle = "rgba(255,214,102,0.45)";
+    ctx.lineWidth = this.s(1.5);
+    ctx.stroke();
   }
 
   private drawEnemies(): void {
@@ -260,10 +375,19 @@ export class BattlefieldRenderer {
 
   private drawTowers(): void {
     const ctx = this.ctx;
+    const selectedUid = this.engine.selectedTowerUid;
     for (const tower of this.engine.world.towers) {
       const def = TOWER_DEFS[tower.defId];
       const x = this.tx(tower.pos.x);
       const y = this.ty(tower.pos.y);
+      // Selection highlight ring beneath the tower body.
+      if (tower.uid === selectedUid) {
+        ctx.beginPath();
+        ctx.arc(x, y, this.s(18), 0, Math.PI * 2);
+        ctx.strokeStyle = "rgba(255,214,102,0.95)";
+        ctx.lineWidth = this.s(2.5);
+        ctx.stroke();
+      }
       ctx.beginPath();
       ctx.arc(x, y, this.s(13), 0, Math.PI * 2);
       ctx.fillStyle = def.color;
@@ -315,6 +439,13 @@ export class BattlefieldRenderer {
       this.ty(VIRT_H - 30)
     );
   }
+}
+
+/** Island HP-gauge color: green when healthy, amber mid, red when critical. */
+function hpGaugeColor(frac: number): string {
+  if (frac > 0.6) return "#5ad17e";
+  if (frac > 0.3) return "#e0c45c";
+  return "#e05858";
 }
 
 function hexAlpha(hex: string, alpha: number): string {

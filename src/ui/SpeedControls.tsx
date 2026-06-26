@@ -28,6 +28,47 @@ export function SpeedControls({
       >
         Auto-Advance {snap.autoAdvance ? "ON" : "OFF"}
       </button>
+      <button
+        className={`toggle-btn${snap.autoRetry ? " on" : ""}`}
+        onClick={() => engine.toggleAutoRetry()}
+        title="On defeat, restart the current wave instead of ending the run."
+      >
+        Auto-Retry {snap.autoRetry ? "ON" : "OFF"}
+      </button>
+
+      {/* Manual wave stepping (only between waves). */}
+      <div className="grp wave-step">
+        <button
+          className="speed-btn"
+          disabled={!snap.canStepWave || snap.wave <= 0}
+          onClick={() => engine.prevWave()}
+          title="Step back one wave"
+        >
+          ◀
+        </button>
+        <span className="wave-step-label">Wave {snap.wave}</span>
+        <button
+          className="speed-btn"
+          disabled={!snap.canStepWave}
+          onClick={() => engine.nextWave()}
+          title="Advance one wave"
+        >
+          ▶
+        </button>
+      </div>
+
+      {/* Target wave for auto-advance (0 = endless). */}
+      <label className="target-wave">
+        Stop at wave
+        <input
+          type="number"
+          min={0}
+          value={snap.targetWave || ""}
+          placeholder="∞"
+          onChange={(e) => engine.setTargetWave(Number(e.target.value) || 0)}
+        />
+      </label>
+
       {!snap.waveActive && !snap.gameOver && (
         <button className="toggle-btn" onClick={() => engine.startWave()}>
           ▶ Start Wave {snap.wave + 1}

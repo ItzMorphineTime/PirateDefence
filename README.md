@@ -10,27 +10,30 @@ This repository contains the **MVP prototype** — a fully playable vertical sli
 
 ## ✨ Features
 
-- **Canvas battlefield** — a fortified island core, three orbit rings, eight tower slots, enemies pouring in from the sea, projectiles, splash explosions, and live range circles.
-- **4 Towers** — Archer Nest (fast single-target), Cannon Battery (splash), Ballista (heavy, bonus boss damage), and the Watchtower (range-extending support aura).
-- **3 Orbiting Ships** — Cutter, Gunboat, and a Repair Sloop that mends the island, all auto-firing as they circle.
+- **Canvas battlefield** — a large fortified island core, two concentric rings of **14 tower slots**, three orbit rings, a **circular HP gauge** around the shoreline, **scrolling sea swell**, enemies pouring in from the sea, projectiles, splash explosions, and live range circles.
+- **Towers** — standard (Archer Nest, Cannon Battery, Ballista, Crossbow, Mortar, Harpoon), the range-extending Watchtower, and **magic towers** (Veilflame, Tide Engine, Storm Spire, Frost Obelisk, Ember Shrine) with status effects and support auras.
+- **Per-tower upgrades** — click any placed tower to open its detail panel and level its **Damage / Range / Fire Rate** independently, paid in escalating Gold + Salvage.
+- **Orbiting Ships** — Cutter, Gunboat, Repair Sloop, plus the Brigantine, Harpoon Schooner, Ghost Frigate, and the outer-ring Dragonwake Man-o'-War — all auto-firing as they circle.
 - **4 Resources** — Gold, Salvage, Powder, and regenerating Mana.
 - **4 Active Abilities** — Cannon Barrage (click-to-target), Rally the Crew, Full Broadside, and Emergency Repairs, each with resource costs and cooldowns.
-- **4 Enemies** — Pirate Raider, Landing Skiff, Armored Brute, and the **Egg-Runner Captain** boss every 25 waves.
-- **Endless scaling waves** — health, count, and rewards grow each wave; boss banners, speed controls (1× / 3× / 6×), and auto-advance.
-- **14 data-driven upgrades** across tabbed panels (Towers / Fleet / Magic / Dragons).
+- **Enemies** — Pirate Raider, Landing Skiff, Armored Brute, and the **Egg-Runner Captain** boss every 25 waves.
+- **Endless scaling waves** — health, count, and rewards grow each wave; boss banners, speed controls (1× / 3× / 6×), auto-advance, **Auto-Retry** (restart your current/highest wave to farm gold), **Next/Previous** wave stepping, and a **target-wave** stop input.
+- **Data-driven upgrades** across tabbed panels (Towers / Fleet / Magic / Dragons).
 - **Dragon Sanctuary hook** — discover a hidden dragon egg at wave 5, claim it to begin the sanctuary, and earn **Dragon Trust** from boss kills for a permanent global tower-damage bonus.
-- **Save / load** — versioned `localStorage` persistence with autosave; reload restores your entire run.
+- **Save / load** — versioned `localStorage` persistence with autosave and forward migrations; reload restores your entire run, including per-tower upgrade levels.
 
 ---
 
 ## 🎮 How to Play
 
-1. **Build towers.** Select a tower from the **Towers** tab, then click a glowing `+` slot on the island.
-2. **Recruit ships.** In the **Fleet** tab, buy ships that orbit and defend the waters automatically.
-3. **Upgrade everything.** Spend Gold, Salvage, and Powder on damage, range, fire rate, mana, and economy upgrades.
-4. **Cast abilities.** Use mana-powered abilities at critical moments — bombard a lane, rally your defenders, or repair the island.
-5. **Survive & scale.** Waves grow endlessly. A boss arrives every **25 waves**.
-6. **Rescue the dragon.** Around **wave 5**, an egg appears. Claim it to begin the sanctuary and grow **Dragon Trust**.
+1. **Build towers.** Select a tower from the **Towers** tab, then click a glowing `+` slot on either ring of the island.
+2. **Upgrade individual towers.** Click any placed tower to open its detail panel and level its **Damage / Range / Fire Rate** for Gold + Salvage.
+3. **Recruit ships.** In the **Fleet** tab, buy ships that orbit and defend the waters automatically.
+4. **Upgrade everything globally.** Spend Gold, Salvage, and Powder on damage, range, fire rate, mana, and economy upgrades.
+5. **Cast abilities.** Use mana-powered abilities at critical moments — bombard a lane, rally your defenders, or repair the island.
+6. **Control the tide.** Use speed (1× / 3× / 6×), auto-advance, **Auto-Retry** to farm your highest wave, **◀/▶** to step waves between rounds, or set a **target wave** to stop at.
+7. **Survive & scale.** Waves grow endlessly. A boss arrives every **25 waves**.
+8. **Rescue the dragon.** Around **wave 5**, an egg appears. Claim it to begin the sanctuary and grow **Dragon Trust**.
 
 > **Goal:** Beneath all the cannons, gold, and fire, the true objective remains — *protect the last dragons before the world drowns again.*
 
@@ -115,8 +118,9 @@ src/
     ├── TopBar.tsx            # Wave / enemies / DPS / time / island HP
     ├── ResourceBar.tsx
     ├── UpgradePanel.tsx      # Tabbed Towers / Fleet / Magic / Dragons
+    ├── TowerDetailPanel.tsx  # Per-tower upgrades for the selected tower
     ├── AbilityBar.tsx
-    ├── SpeedControls.tsx
+    ├── SpeedControls.tsx     # Speed, auto-advance, Auto-Retry, wave stepping
     ├── WaveBanner.tsx
     └── EventToast.tsx        # Dragon egg / lore events
 ```
@@ -148,8 +152,9 @@ Per-tower / ship / enemy / upgrade values live in the corresponding files under 
 
 The MVP is structured so these planned systems can be layered on:
 
-- [ ] Additional towers (Crossbow, Mortar, Harpoon) and **magic towers** (Veilflame, Tide Engine, Storm Spire, Frost Obelisk, Ember Shrine)
-- [ ] More ship classes (Brigantine, Harpoon Schooner, Ghost Frigate, Dragonwake Man-o'-War)
+- [x] Additional towers (Crossbow, Mortar, Harpoon) and **magic towers** (Veilflame, Tide Engine, Storm Spire, Frost Obelisk, Ember Shrine)
+- [x] More ship classes (Brigantine, Harpoon Schooner, Ghost Frigate, Dragonwake Man-o'-War)
+- [x] UX polish — larger dual-ring island, circular HP gauge, scrolling sea, per-tower upgrades, and richer wave controls (Auto-Retry / Next-Prev / target-wave)
 - [ ] Full **dragon types** (Blaze, Icey, Speedy, Elder) with hatch timers and dragon abilities
 - [ ] The **Five Pirate King** factions with unique enemies, mechanics, and counter-upgrades
 - [ ] **Corruption** system and forbidden Crown Shard power
