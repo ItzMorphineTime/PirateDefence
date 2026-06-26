@@ -90,7 +90,7 @@ export class GameEngine {
       time: 0,
       damageEvents: [],
       bossKills: 0,
-      shipsOwned: { cutter: 0, gunboat: 0, sloop: 0 },
+      shipsOwned: emptyShipCounts(),
     };
 
     if (save) this.applySave(save);
@@ -213,7 +213,18 @@ export class GameEngine {
     this.ships.update(w, dt, (ship, from, target) => {
       const def: ShipDef = SHIP_DEFS[ship.defId];
       const dmg = def.damage * w.bonuses.shipDamageMult;
-      this.projectiles.spawn(w, from, target.pos, dmg, 0, 1, def.color, target.uid, 460);
+      this.projectiles.spawn(
+        w,
+        from,
+        target.pos,
+        dmg,
+        def.splash ?? 0,
+        def.bossMultiplier ?? 1,
+        def.color,
+        target.uid,
+        460,
+        { status: def.appliesStatus, ignoreArmor: def.ignoreArmor }
+      );
     });
 
     this.projectiles.update(w, dt, this.res, goldScale, (amt) => {
@@ -478,4 +489,12 @@ export class GameEngine {
     }
     return out;
   }
+}
+
+/** Zeroed ownership counts for every defined ship, so new `ShipId`s are always
+ *  present (save round-trips and snapshots never have missing keys). */
+function emptyShipCounts(): Record<ShipId, number> {
+  const out = {} as Record<ShipId, number>;
+  for (const id of Object.keys(SHIP_DEFS) as ShipId[]) out[id] = 0;
+  return out;
 }

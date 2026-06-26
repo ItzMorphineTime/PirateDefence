@@ -16,6 +16,8 @@ export interface DamageOptions {
   manaOnBossKill?: number;
   /** Callback to grant mana from a boss kill (engine wires resource + clamp). */
   onManaFromKill?: (amount: number) => void;
+  /** If true, the hit bypasses enemy armor entirely (Ghost Frigate). */
+  ignoreArmor?: boolean;
 }
 
 /** Current effective armor for an enemy, reduced by any active armorShred. */
@@ -45,7 +47,8 @@ export function applyDamage(
   const def = ENEMY_DEFS[enemy.defId];
 
   let dmg = amount * (enemy.isBoss ? opts.bossMultiplier ?? 1 : 1);
-  dmg = Math.max(1, dmg - effectiveArmor(enemy));
+  const armor = opts.ignoreArmor ? 0 : effectiveArmor(enemy);
+  dmg = Math.max(1, dmg - armor);
   enemy.hp -= dmg;
   world.damageEvents.push({ t: world.time, amount: dmg });
 

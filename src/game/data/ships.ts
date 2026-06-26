@@ -1,4 +1,5 @@
 import type { ShipDef, ShipId } from "../types";
+import { STATUS } from "../config";
 
 export const SHIP_DEFS: Record<ShipId, ShipDef> = {
   cutter: {
@@ -37,6 +38,65 @@ export const SHIP_DEFS: Record<ShipId, ShipDef> = {
     orbitSpeed: 0.7,
     repairRate: 1.2,
     color: "#7ec8e0",
+  },
+
+  // --- Phase 3 ship classes ---
+  brigantine: {
+    id: "brigantine",
+    name: "Brigantine",
+    desc: "Splash broadsides that catch clustered raiders.",
+    buildCost: { gold: 220, salvage: 80 },
+    damage: 18,
+    fireInterval: 1.3,
+    range: 175,
+    ring: "middle",
+    orbitSpeed: 0.5,
+    color: "#e0c45c",
+    splash: 45,
+  },
+  harpoonSchooner: {
+    id: "harpoonSchooner",
+    name: "Harpoon Schooner",
+    desc: "Fast skirmisher whose hooks slow their target.",
+    buildCost: { gold: 200, salvage: 70 },
+    damage: 10,
+    fireInterval: 1.0,
+    range: 165,
+    ring: "inner",
+    orbitSpeed: 0.85,
+    color: "#5fc0d8",
+    appliesStatus: {
+      id: "slow",
+      duration: STATUS.slowDuration,
+      magnitude: STATUS.slowFactor,
+    },
+  },
+  ghostFrigate: {
+    id: "ghostFrigate",
+    name: "Ghost Frigate",
+    desc: "Spectral shots that pass straight through armor.",
+    buildCost: { gold: 300, salvage: 90, powder: 30 },
+    damage: 22,
+    fireInterval: 1.4,
+    range: 185,
+    ring: "middle",
+    orbitSpeed: 0.45,
+    color: "#b0a0e0",
+    ignoreArmor: true,
+  },
+  manOWar: {
+    id: "manOWar",
+    name: "Dragonwake Man-o'-War",
+    desc: "Capital ship. Fires a volley at several foes at once.",
+    buildCost: { gold: 480, salvage: 160, powder: 60 },
+    damage: 30,
+    fireInterval: 2.0,
+    range: 230,
+    ring: "outer",
+    orbitSpeed: 0.3,
+    color: "#e07a4b",
+    bossMultiplier: 1.4,
+    volley: 3,
   },
 };
 

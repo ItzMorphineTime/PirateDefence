@@ -57,10 +57,10 @@ export class ShipManager {
       if (ship.cooldown > 0) continue;
 
       const range = this.effectiveRange(world, ship);
-      const target = this.pickTarget(world, from, range);
-      if (!target) continue;
+      const targets = this.pickTargets(world, from, range, def.volley ?? 1);
+      if (targets.length === 0) continue;
 
-      fireProjectile(ship, from, target);
+      for (const target of targets) fireProjectile(ship, from, target);
       ship.cooldown = def.fireInterval;
     }
   }
@@ -76,26 +76,23 @@ export class ShipManager {
       if (def.damage <= 0) continue;
       const from = this.pos(ship);
       const range = this.effectiveRange(world, ship);
-      const target = this.pickTarget(world, from, range);
-      if (!target) continue;
-      fireProjectile(ship, from, target);
+      const targets = this.pickTargets(world, from, range, def.volley ?? 1);
+      if (targets.length === 0) continue;
+      for (const target of targets) fireProjectile(ship, from, target);
       ship.cooldown = def.fireInterval;
       fired++;
     }
     return fired;
   }
 
-  private pickTarget(world: World, from: Vec2, range: number): Enemy | null {
-    let best: Enemy | null = null;
-    let bestD = Infinity;
-    for (const e of world.enemies) {
-      const d = dist(from, e.pos);
-      if (d > range) continue;
-      if (d < bestD) {
-        bestD = d;
-        best = e;
-      }
-    }
-    return best;
+  /**
+   * Pick up to `count` distinct in-range enemies, nearest first. With count = 1
+   * this is the classic single-target pick; >1 powers volley ships (Man-o'-War).
+   */
+  private pickTargets(world: World, from: Vec2, range: number, count: number): Enemy[] {
+    const inRange = world.enemies
+      .filter((e) => dist(from, e.pos) <= range)
+      .sort((a, b) => dist(from, a.pos) - dist(from, b.pos));
+    return inRange.slice(0, Math.max(1, count));
   }
 }

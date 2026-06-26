@@ -31,7 +31,7 @@
 | Code-quality fixes (§A) | 🟨 In progress | A1/A2/A4/A5/A6/A7 done; A3/A8–A12 remain |
 | Phase 1 — Foundations | ✅ Done | Status framework, unified damage pipeline, registry hygiene, save migration |
 | Phase 2 — Towers & Magic Towers | ✅ Done | 3 standard + 5 magic towers, behavior flags, upgrades, renderer |
-| Phase 3 — Fleet Expansion | ⬜ Not started | New ship classes + ring behaviors |
+| Phase 3 — Fleet Expansion | ✅ Done | 4 new ship classes, behavior flags, outer-ring capital, save compat |
 | Phase 4 — Dragon System | ⬜ Not started | Dragon types, hatch timers, dragon abilities |
 | Phase 5 — Pirate King Factions | ⬜ Not started | `FactionManager`, faction waves & counters |
 | Phase 6 — Corruption & Crown Shard | ⬜ Not started | Risk/reward forbidden power |
@@ -197,21 +197,33 @@ passes with no special-casing in `GameEngine.step()`.
 
 **Depends on:** Phase 1; benefits from Phase 2 status framework.
 
-- [ ] **3.1 New ship defs.** Add IDs to `ShipId` + `SHIP_DEFS` + `BUILDABLE_SHIPS`
-  with ring assignments (`outer` ring is currently unused by ships — good home
-  for capital ships). _Files:_ `types.ts`, `data/ships.ts`.
-- [ ] **3.2 Special ship behaviors.** Ghost Frigate (ignores armor / phases),
-  Man-o'-War (broadside volley), Harpoon Schooner (applies slow/pull). Extend
-  `ShipDef` with behavior flags and honor in `ShipManager.update`. _Files:_
-  `types.ts`, `ShipManager.ts`.
-- [ ] **3.3 Fleet upgrades + UI.** Extend Fleet upgrade group; `shipsOwned`
-  already tracks counts and the Fleet tab auto-renders `BUILDABLE_SHIPS`.
-  _Files:_ `data/upgrades.ts`.
-- [ ] **3.4 Save compat.** `shipsOwned` is a `Record<ShipId, number>`; ensure new
-  ids default to 0 on load. _Files:_ `save.ts`, migration.
+- [x] **3.1 New ship defs.** Added `brigantine` (middle ring, splash 45),
+  `harpoonSchooner` (inner, fast, slow-on-hit), `ghostFrigate` (middle, armor-
+  piercing), `manOWar` (capital — the previously unused `outer` ring, 3-shot
+  volley) to `ShipId` + `SHIP_DEFS`. `BUILDABLE_SHIPS` derives from the keys, so
+  they auto-appear in the Fleet menu. _Files:_ `types.ts`, `data/ships.ts`.
+- [x] **3.2 Special ship behaviors.** `ShipDef` gained `appliesStatus?`,
+  `splash?`, `ignoreArmor?`, `bossMultiplier?`, `volley?`. `ShipManager` now
+  fires at up to `volley` nearest targets via `pickTargets()`; the GameEngine
+  ship-fire callback and the Full Broadside ability both pass splash/status/
+  armor-pierce/boss-mult opts. Armor-pierce threads through `combat.applyDamage`
+  via a new `DamageOptions.ignoreArmor` and `Projectile.ignoreArmor`. _Files:_
+  `types.ts`, `ShipManager.ts`, `GameEngine.ts`, `AbilityManager.ts`,
+  `combat.ts`, `ProjectileManager.ts`.
+- [x] **3.3 Fleet upgrades + UI.** The existing Fleet upgrades (`shipDmg`,
+  `shipRange`, `shipOrbit`, `shipReload`) are global multipliers in
+  `computeBonuses`, so every new ship benefits automatically; the Fleet tab
+  auto-renders `BUILDABLE_SHIPS` and `shipsOwned` tracks per-ship counts. No new
+  per-ship upgrades were required. _Files:_ (none — existing convention covers it).
+- [x] **3.4 Save compat.** `world.shipsOwned` now initializes from
+  `Object.keys(SHIP_DEFS)` via `emptyShipCounts()`, so every `ShipId` (including
+  new ones) defaults to 0 and round-trips through save/load and snapshots with no
+  missing keys — no schema bump needed. _Files:_ `GameEngine.ts`.
 
-**Acceptance:** new ships recruitable, orbit correctly on their rings, exhibit
-special behaviors, persist across reload.
+**Acceptance:** ✅ all four new ships are recruitable from the derived Fleet menu,
+orbit on their assigned rings (Man-o'-War on the outer ring), exhibit their
+special behaviors (splash, slow-on-hit, armor-pierce, volley), benefit from the
+global fleet upgrades, and persist across reload; `npm run build` passes.
 
 ### Phase 4 — Dragon System
 
@@ -336,6 +348,16 @@ A task is `[x]` only when **all** hold:
 
 > Newest first. One entry per meaningful change. Format: `YYYY-MM-DD — area — summary`.
 
+- 2026-06-23 — engine — Completed Phase 3 (Fleet Expansion): added Brigantine
+  (splash), Harpoon Schooner (slow-on-hit), Ghost Frigate (armor-piercing), and
+  the Dragonwake Man-o'-War (capital ship on the previously unused outer ring with
+  a 3-shot volley). Extended `ShipDef` with `appliesStatus`/`splash`/`ignoreArmor`/
+  `bossMultiplier`/`volley` flags; `ShipManager` fires volleys via `pickTargets`,
+  and both the live ship loop and Full Broadside honor the flags. Threaded
+  armor-pierce through `combat.applyDamage` (`DamageOptions.ignoreArmor`,
+  `Projectile.ignoreArmor`). `shipsOwned` now initializes from `SHIP_DEFS` keys
+  (`emptyShipCounts`) so new ids default to 0 and save/load round-trips cleanly.
+  Existing global fleet upgrades apply to all new ships. Build passes.
 - 2026-06-23 — engine — Completed Phase 2 (Towers & Magic Towers): added 3
   standard towers (crossbow=pierce, mortar=long-range/min-range, harpoon=slow)
   and 5 magic towers (Veilflame=burn, Frost Obelisk=slow, Storm Spire=shred,

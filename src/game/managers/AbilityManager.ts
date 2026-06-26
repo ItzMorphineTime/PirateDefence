@@ -74,7 +74,20 @@ export class AbilityManager {
             shipDef.damage *
             world.bonuses.shipDamageMult *
             ABILITY_TUNING.broadsideDamageMult;
-          ctx.projectiles.spawn(world, from, t.pos, dmg, 20, 1, "#e0883c", t.uid, 500);
+          // Honor each ship's own behavior (splash/status/armor-pierce) so the
+          // volley reflects the actual fleet composition.
+          ctx.projectiles.spawn(
+            world,
+            from,
+            t.pos,
+            dmg,
+            Math.max(20, shipDef.splash ?? 0),
+            shipDef.bossMultiplier ?? 1,
+            "#e0883c",
+            t.uid,
+            500,
+            { status: shipDef.appliesStatus, ignoreArmor: shipDef.ignoreArmor }
+          );
         });
         break;
       case "repairs":

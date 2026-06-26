@@ -89,7 +89,14 @@ export interface Tower {
 // ---------------------------------------------------------------------------
 // Ships
 // ---------------------------------------------------------------------------
-export type ShipId = "cutter" | "gunboat" | "sloop";
+export type ShipId =
+  | "cutter"
+  | "gunboat"
+  | "sloop"
+  | "brigantine"
+  | "harpoonSchooner"
+  | "ghostFrigate"
+  | "manOWar";
 
 export type OrbitRing = "inner" | "middle" | "outer";
 
@@ -107,6 +114,17 @@ export interface ShipDef {
   /** Island HP repaired per second (repair sloop only). */
   repairRate?: number;
   color: string;
+  // --- Phase 3 behavior flags (all optional; absent = vanilla) ---
+  /** Status effect applied to enemies this ship's shots hit (Harpoon Schooner). */
+  appliesStatus?: StatusApplication;
+  /** Splash radius for the ship's shots (0/undefined = single target). */
+  splash?: number;
+  /** Shots ignore enemy armor entirely (Ghost Frigate). */
+  ignoreArmor?: boolean;
+  /** Bonus damage multiplier vs boss enemies. */
+  bossMultiplier?: number;
+  /** Fires this many shots per volley at distinct nearby targets (Man-o'-War). */
+  volley?: number;
 }
 
 export interface Ship {
@@ -177,6 +195,8 @@ export interface Projectile {
   pierceCount?: number;
   /** Status applied to each enemy this projectile hits. */
   status?: StatusApplication;
+  /** If true, this shot bypasses enemy armor (Ghost Frigate). */
+  ignoreArmor?: boolean;
 }
 
 export interface Effect {

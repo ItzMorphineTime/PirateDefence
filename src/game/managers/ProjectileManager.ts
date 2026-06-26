@@ -5,10 +5,12 @@ import { dist, nextUid } from "../math";
 import { applyDamage, applyStatus } from "../combat";
 import type { ResourceManager } from "./ResourceManager";
 
-/** Optional per-shot behavior carried on a projectile (Phase 2 towers). */
+/** Optional per-shot behavior carried on a projectile (Phase 2 towers / Phase 3 ships). */
 export interface ProjectileOpts {
   pierceCount?: number;
   status?: StatusApplication;
+  /** Bypass enemy armor (Ghost Frigate). */
+  ignoreArmor?: boolean;
 }
 
 export class ProjectileManager {
@@ -36,6 +38,7 @@ export class ProjectileManager {
       sourceTargetUid: targetUid,
       pierceCount: opts.pierceCount,
       status: opts.status,
+      ignoreArmor: opts.ignoreArmor,
     };
     world.projectiles.push(p);
   }
@@ -148,6 +151,7 @@ export class ProjectileManager {
       bossMultiplier: p.bossMultiplier,
       manaOnBossKill: 20,
       onManaFromKill,
+      ignoreArmor: p.ignoreArmor,
     });
     if (p.status && e.hp > 0) {
       applyStatus(e, p.status.id, p.status.duration, p.status.magnitude, world.time);

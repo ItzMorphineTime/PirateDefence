@@ -169,10 +169,4 @@ game — drop it into the project root to link it here.
 
 ---
 
-## 📄 License
-
-This project is a prototype. Add your preferred license here (e.g. MIT).
-
----
-
 *Built with cannons, gold, ghosts, and fire — for the last dragons.* 🐉
