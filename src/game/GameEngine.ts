@@ -1,5 +1,7 @@
 import type {
   AbilityId,
+  DragonAbilityId,
+  DragonId,
   GameSnapshot,
   SelectedTowerInfo,
   SelectedTowerUpgrade,
@@ -26,6 +28,7 @@ import { DragonManager } from "./managers/DragonManager";
 import { TOWER_DEFS } from "./data/towers";
 import { SHIP_DEFS } from "./data/ships";
 import { ABILITY_DEFS } from "./data/abilities";
+import { DRAGON_ABILITY_DEFS } from "./data/dragons";
 import {
   BASE_ISLAND_HP,
   DPS_WINDOW,
@@ -66,6 +69,8 @@ export class GameEngine {
   /** Uid of the placed tower currently selected for per-tower upgrades. */
   selectedTowerUid: number | null = null;
   armedAbility: AbilityId | null = null;
+  /** A targeted dragon ability awaiting a battlefield click, if any. */
+  armedDragonAbility: DragonAbilityId | null = null;
   bannerText: string | null = null;
   private bannerTimer = 0;
   eventToast: { title: string; body: string } | null = null;
@@ -132,7 +137,7 @@ export class GameEngine {
 
   toSave(): SaveData {
     return {
-      version: 2,
+      version: 3,
       resources: this.res.res,
       upgrades: this.up.levels,
       wave: this.waves.wave,
@@ -265,8 +270,9 @@ export class GameEngine {
     // Enemy movement + core damage (also ticks status DoT/expiry)
     this.enemies.update(w, dt, this.res, goldScale);
 
-    // Abilities cooldowns
+    // Abilities cooldowns (player + dragon)
     this.abilities.update(dt);
+    this.dragons.update(dt);
 
     // Effects decay
     for (const fx of w.effects) fx.life -= dt;
@@ -323,6 +329,9 @@ export class GameEngine {
     // Wave-clear gold bonus
     const bonus = 10 * Math.pow(1.08, this.waves.wave) * this.world.bonuses.goldMult;
     this.res.add("gold", bonus);
+
+    // Dragon Trust trickle for clearing a wave (no-op until the egg is claimed).
+    this.dragons.onWaveCleared();
 
     // Dragon egg discovery
     if (this.dragons.checkEggDiscovery(this.waves.wave)) {
@@ -407,6 +416,12 @@ export class GameEngine {
     if (this.armedAbility) {
       const ok = this.castAbility(this.armedAbility, point);
       this.armedAbility = null;
+      this.pushSnapshot();
+      return ok;
+    }
+    if (this.armedDragonAbility) {
+      const ok = this.castDragonAbility(this.armedDragonAbility, point);
+      this.armedDragonAbility = null;
       this.pushSnapshot();
       return ok;
     }
@@ -506,6 +521,39 @@ export class GameEngine {
     this.pushSnapshot();
   }
 
+  // ------------------------------------------------------------- dragons
+  /** Spend Trust to hatch a dragon; its passive aura applies immediately. */
+  hatchDragon(id: DragonId): boolean {
+    const ok = this.dragons.hatch(id);
+    if (ok) {
+      this.refreshDerived();
+      this.pushSnapshot();
+    }
+    return ok;
+  }
+
+  /** Arm (or instantly cast) a dragon ability, mirroring `armAbility`. */
+  armDragonAbility(id: DragonAbilityId): void {
+    if (!this.dragons.abilityReady(id)) return;
+    const def = DRAGON_ABILITY_DEFS[id];
+    if (def.targeted) {
+      this.armedDragonAbility = this.armedDragonAbility === id ? null : id;
+      this.armedAbility = null; // only one armed action at a time
+    } else {
+      this.castDragonAbility(id);
+    }
+    this.pushSnapshot();
+  }
+
+  castDragonAbility(id: DragonAbilityId, target?: Vec2): boolean {
+    return this.dragons.castAbility(id, {
+      world: this.world,
+      res: this.res,
+      goldScale: this.waves.goldScale(),
+      target,
+    });
+  }
+
   dismissToast(): void {
     this.eventToast = null;
     this.pushSnapshot();
@@ -563,8 +611,13 @@ export class GameEngine {
         broadside: { ...this.abilities.states.broadside },
         repairs: { ...this.abilities.states.repairs },
       },
-      dragon: { ...this.dragons.state },
+      dragon: {
+        ...this.dragons.state,
+        hatched: [...this.dragons.state.hatched],
+        abilityCooldowns: { ...this.dragons.state.abilityCooldowns },
+      },
       armedAbility: this.armedAbility,
+      armedDragonAbility: this.armedDragonAbility,
       bannerText: this.bannerText,
       eventToast: this.eventToast,
     };
@@ -589,7 +642,7 @@ export class GameEngine {
       this.world.bonuses.towerDamageMult(tower.defId) *
       this.towers.damageAuraMult(this.world, tower) *
       this.towers.perTowerDamageMult(tower);
-    const fireInterval = this.towers.effectiveFireInterval(tower);
+    const fireInterval = this.towers.effectiveFireInterval(this.world, tower);
     const fireRate = fireInterval > 0 ? 1 / fireInterval : 0;
     const stats = {
       damage,

@@ -32,7 +32,7 @@
 | Phase 1 — Foundations | ✅ Done | Status framework, unified damage pipeline, registry hygiene, save migration |
 | Phase 2 — Towers & Magic Towers | ✅ Done | 3 standard + 5 magic towers, behavior flags, upgrades, renderer |
 | Phase 3 — Fleet Expansion | ✅ Done | 4 new ship classes, behavior flags, outer-ring capital, save compat |
-| Phase 4 — Dragon System | ⬜ Not started | Dragon types, hatch timers, dragon abilities |
+| Phase 4 — Dragon System | ✅ Done | 4 hatchable dragons (Blaze/Icey/Speedy/Elder), Trust-spend hatching, passive auras, Blaze Breath active ability, sanctuary roster UI, circling-dragon renderer |
 | Phase 5 — Pirate King Factions | ⬜ Not started | `FactionManager`, faction waves & counters |
 | Phase 6 — Corruption & Crown Shard | ⬜ Not started | Risk/reward forbidden power |
 | Phase 7 — Prestige | ⬜ Not started | `PrestigeManager`, meta-progression |
@@ -49,7 +49,7 @@
 src/game/
   GameEngine.ts        # orchestrates managers over a shared World; fixed-step loop
   world.ts             # mutable sim state
-  bonuses.ts           # derives combat/economy values from upgrades + dragon trust
+  bonuses.ts           # derives combat/economy values from upgrades + hatched-dragon auras
   config.ts            # tunables
   types.ts             # shared interfaces & id unions
   data/                # towers, ships, enemies, abilities, upgrades (plain objects)
@@ -64,7 +64,8 @@ ui/                    # React panels + useEngine snapshot hook
 - `Family = "land" | "sea" | "sky" | "shadow"` union (reserved for faction/upgrade grouping).
 - Data-driven `*_DEFS` records → new content is a data entry, not engine code.
 - Manager pattern → new systems slot in as new managers ticked by `GameEngine.step()`.
-- `DragonState` + Dragon Trust hook → expandable into the full dragon system.
+- `DragonState` + `DragonId`/`DRAGON_DEFS` → new dragons are a single data entry
+  (id + def); abilities slot in via `DragonAbilityId`/`DRAGON_ABILITY_DEFS`.
 - Versioned save (`SAVE_VERSION`) → migration path for schema growth.
 
 ---
@@ -233,26 +234,41 @@ dragon abilities, expanding the current Trust-only hook.
 
 **Depends on:** Phase 1 (status), Phase 2 (so dragon buffs interact with towers).
 
-- [ ] **4.1 Data model.** Replace the single `DragonState` with a `dragons[]`
-  collection: `{ type, hatchProgress, hatched, level }`. Add `DragonType` union
-  and `DRAGON_DEFS`. Keep `trust` as a sanctuary-wide currency. _Files:_
-  `types.ts`, new `data/dragons.ts`.
-- [ ] **4.2 Hatch timers.** `DragonManager` ticks hatch progress per `step(dt)`;
-  egg claim starts a timer; hatched dragons grant passive auras (Blaze=+tower
-  dmg, Icey=enemy slow aura, Speedy=+fire rate, Elder=+all). _Files:_
-  `DragonManager.ts`, `bonuses.ts` (fold dragon auras into `computeBonuses`).
-- [ ] **4.3 Dragon abilities.** Add active dragon abilities to `AbilityId` or a
-  parallel `DragonAbility` set (e.g., Blaze breath = big AoE burn). Reuse
-  `AbilityManager` cooldown plumbing. _Files:_ `data/abilities.ts`,
-  `AbilityManager.ts`, `AbilityBar.tsx`.
-- [ ] **4.4 Sanctuary UI.** Expand the Dragons tab beyond the Trust readout:
-  show eggs, hatch progress bars, dragon roster, and ability buttons. _Files:_
-  `UpgradePanel.tsx` (DragonsTab), `EventToast.tsx`.
-- [ ] **4.5 Renderer.** Draw hatched dragons circling/perched on the island.
-  _Files:_ `BattlefieldRenderer.ts`.
+- [x] **4.1 Data model.** Added `DragonId = blaze | icey | speedy | elder`,
+  `DragonDef`/`DragonAbilityDef` interfaces, and a new `data/dragons.ts`
+  (`DRAGON_DEFS`, `DRAGON_LIST`, `DRAGON_ABILITY_DEFS`, `DRAGON_ABILITY_OWNER`).
+  Extended `DragonState` with `hatched: DragonId[]` + `abilityCooldowns`, keeping
+  `trust` as the sanctuary-wide spendable currency. _Files:_ `types.ts`,
+  `data/dragons.ts`, `config.ts` (`DRAGON` tunables).
+- [x] **4.2 Trust-spend hatching + auras.** _Design resolved:_ instead of real-time
+  hatch timers, **Trust is spent to hatch** each dragon (per user decision).
+  `DragonManager` earns Trust from bosses (`onBossDefeated`) and wave clears
+  (`onWaveCleared`), and `hatch(id)` deducts the dragon's `hatchCost`. Passive
+  auras fold into `computeBonuses`: Blaze = +tower damage, Icey = enemy-slow aura
+  (applied in `EnemyManager.update` via `enemySlowMult`), Speedy = +fire rate
+  (applied in `TowerManager.effectiveFireInterval` via `towerFireRateMult`),
+  Elder = +a slice of all. _Files:_ `DragonManager.ts`, `bonuses.ts`,
+  `EnemyManager.ts`, `TowerManager.ts`.
+- [x] **4.3 Dragon abilities.** Added a parallel `DragonAbilityId = blazeBreath`
+  with its own cooldown plumbing in `DragonManager` (`update(dt)` ticks
+  cooldowns; `castAbility` checks unlock/cooldown/cost, then `castBlazeBreath`
+  does an AoE `applyDamage` + burn `applyStatus`). `GameEngine` exposes
+  `armDragonAbility`/`castDragonAbility`; targeted casts route through
+  `onBattlefieldClick` (`armedDragonAbility`). _Files:_ `data/dragons.ts`,
+  `DragonManager.ts`, `GameEngine.ts`, `types.ts`.
+- [x] **4.4 Sanctuary UI.** Rewrote the Dragons tab: a Trust readout, a hatch
+  roster (color dot + name + aura summary + Trust cost, disabled when owned or
+  unaffordable), and a Blaze Breath ability button (cost + recharge state, armed
+  highlight). _Files:_ `UpgradePanel.tsx` (DragonsTab/DragonAbilities).
+- [x] **4.5 Renderer.** `drawDragons` draws each hatched dragon circling the
+  island nursery at a staggered radius/phase with flapping wings; the armed-hint
+  also fires for dragon abilities. _Files:_ `BattlefieldRenderer.ts`.
 
-**Acceptance:** at least two dragon types hatch on timers, grant distinct auras,
-and one has an active ability; sanctuary tab reflects state; saves persist.
+**Acceptance:** ✅ four dragons hatch by spending Trust, grant distinct passive
+auras (tower damage / enemy slow / fire rate / all), and Blaze unlocks an active
+AoE-burn ability; the sanctuary tab reflects roster + cooldown state, hatched
+dragons circle the island, and saves persist via the v2→v3 migration.
+`npm run build` passes.
 
 ### Phase 5 — The Five Pirate King Factions
 
@@ -446,6 +462,27 @@ A task is `[x]` only when **all** hold:
 
 > Newest first. One entry per meaningful change. Format: `YYYY-MM-DD — area — summary`.
 
+- 2026-06-26 — engine/ui — Implemented **Phase 4 — Dragon System**. Added four
+  hatchable dragons (`DragonId` Blaze/Icey/Speedy/Elder) in a new `data/dragons.ts`,
+  with `DRAGON` config tunables (hatch costs, aura magnitudes, ability tuning) and
+  extended `DragonState` (`hatched[]`, `abilityCooldowns`). **Trust-spend hatching**
+  (per user decision — no real-time timers): `DragonManager` earns Trust from
+  bosses + wave clears and `hatch(id)` deducts the dragon's cost. Passive auras
+  fold into `computeBonuses` — Blaze=+tower damage, Icey=enemy slow (applied in
+  `EnemyManager` via `enemySlowMult`), Speedy=+fire rate (applied in
+  `TowerManager.effectiveFireInterval` via `towerFireRateMult`), Elder=+a slice of
+  all. Added the **Blaze Breath** active ability (`DragonAbilityId`) with its own
+  cooldown plumbing in `DragonManager` (AoE `applyDamage` + burn `applyStatus`),
+  wired into `GameEngine` (`armDragonAbility`/`castDragonAbility`, `armedDragonAbility`
+  routed through `onBattlefieldClick`). Rewrote the Dragons tab (Trust readout,
+  hatch roster, ability button) and added `drawDragons` (hatched dragons circle the
+  island with flapping wings). Bumped `SAVE_VERSION` 2→3 with a v2→v3 migration
+  backfilling `hatched`/`abilityCooldowns`. `npm run build` passes.
+- 2026-06-26 — ui — Popup/overlay polish: build & tower-detail popups are now
+  edge-aware (clamped fully on-screen via `useClampedPosition`) and **scrollable**
+  (`.tower-popup` flex column with `max-height` + `.tower-popup-body { overflow-y:
+  auto }`); build-menu rows are cleaner (color dot + name + cost, description
+  removed). `npm run build` passes.
 - 2026-06-26 — engine/ui — Implemented **Phase 9 — UX & Interaction Polish**.
   **9.1:** doubled the island (`ISLAND_RADIUS` 70→140), added a second inner ring
   of build slots (`TOWER_SLOT_OUTER_COUNT` 8 + `TOWER_SLOT_INNER_COUNT` 6 = 14),
@@ -515,8 +552,11 @@ A task is `[x]` only when **all** hold:
   "essence"/mana-crystal resource?~~ **Resolved:** magic towers cost **gold +
   powder** (no new `ResourceId`). A dedicated magic resource may still be
   introduced later in Phase 8 (8.1) if desired.
-- [!] **Dragon data shape** (Phase 4): single evolving sanctuary vs. a roster of
-  individual dragons. Roadmap assumes a roster.
+- [x] **Dragon data shape** (Phase 4): ~~single evolving sanctuary vs. a roster of
+  individual dragons.~~ **Resolved:** a **roster of four** named dragons
+  (Blaze/Icey/Speedy/Elder), each hatched by **spending Trust** (no real-time
+  timers), each granting a distinct passive aura; Blaze also unlocks the Blaze
+  Breath active ability. New dragons are pure data (`DragonId` + `DRAGON_DEFS`).
 - [!] **Faction selection** (Phase 5): one faction per run, per region, or
   rotating by wave band?
 - [!] **Prestige currency source** (Phase 7): waves, bosses, trust, or a blend?

@@ -1,17 +1,13 @@
 // ============================================================================
-// Computes derived combat/economy values from upgrade levels + dragon trust.
-// Centralizing this keeps managers free of upgrade math.
+// Computes derived combat/economy values from upgrade levels + hatched dragon
+// auras. Centralizing this keeps managers free of upgrade/aura math.
 // ============================================================================
 import type { TowerId, UpgradeId, DragonState } from "./types";
 import type { UpgradeManager } from "./managers/UpgradeManager";
 import { UP, MAGIC_TOWER_IDS } from "./data/upgrades";
 import { TOWER_DEFS } from "./data/towers";
 import { SHIP_DEFS } from "./data/ships";
-import {
-  BASE_MAX_MANA,
-  BASE_MANA_REGEN,
-  DRAGON_TRUST_DAMAGE_BONUS,
-} from "./config";
+import { BASE_MAX_MANA, BASE_MANA_REGEN, DRAGON } from "./config";
 
 export interface Bonuses {
   towerDamageMult: (id: TowerId) => number;
@@ -24,12 +20,26 @@ export interface Bonuses {
   maxMana: number;
   manaRegen: number;
   goldMult: number;
-  /** Global tower damage bonus from dragon trust. */
+  /** Global tower damage multiplier from hatched dragons (Blaze / Elder). */
   dragonDamageMult: number;
+  /** Global tower fire-rate multiplier from hatched dragons (Speedy / Elder). */
+  towerFireRateMult: number;
+  /** Global enemy speed multiplier from hatched dragons (Icey / Elder); ≤ 1. */
+  enemySlowMult: number;
 }
 
 export function computeBonuses(up: UpgradeManager, dragon: DragonState): Bonuses {
-  const dragonDamageMult = 1 + dragon.trust * DRAGON_TRUST_DAMAGE_BONUS;
+  // --- Dragon auras (hatched dragons each contribute; Elder adds a slice of all).
+  const has = (id: string): boolean => dragon.hatched.includes(id as never);
+  const elder = has("elder") ? DRAGON.elderAll : 0;
+  const dragonDamageMult =
+    1 + (has("blaze") ? DRAGON.blazeTowerDamage : 0) + elder;
+  const towerFireRateMult =
+    1 + (has("speedy") ? DRAGON.speedyFireRate : 0) + elder;
+  const enemySlowMult = Math.max(
+    DRAGON.enemySlowFloor,
+    1 - (has("icey") ? DRAGON.iceyEnemySlow : 0) - elder
+  );
 
   const isMagic = (id: TowerId): boolean =>
     (MAGIC_TOWER_IDS as readonly string[]).includes(id);
@@ -44,6 +54,8 @@ export function computeBonuses(up: UpgradeManager, dragon: DragonState): Bonuses
 
   return {
     dragonDamageMult,
+    towerFireRateMult,
+    enemySlowMult,
     towerDamageMult: (id: TowerId) => {
       // Convention: each attacking tower has a `{id}Dmg` upgrade.
       let m = 1 + lvl(`${id}Dmg`) * mag(`${id}Dmg`);

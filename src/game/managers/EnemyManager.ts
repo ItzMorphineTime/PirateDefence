@@ -59,7 +59,8 @@ export class EnemyManager {
       if (e.hp <= 0) continue; // killed by burn this tick
       const def = ENEMY_DEFS[e.defId];
       const angle = Math.atan2(CENTER.y - e.pos.y, CENTER.x - e.pos.x);
-      const factor = moveFactor(e, now);
+      // Per-enemy status slow × global Icey/Elder dragon slow aura.
+      const factor = moveFactor(e, now) * world.bonuses.enemySlowMult;
       const step = e.speed * factor * dt;
       e.pos.x += Math.cos(angle) * step;
       e.pos.y += Math.sin(angle) * step;

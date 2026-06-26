@@ -278,12 +278,57 @@ export interface UpgradeDef {
 }
 
 // ---------------------------------------------------------------------------
-// Dragons (MVP hook)
+// Dragons
 // ---------------------------------------------------------------------------
+/** The four hatchable dragon types, each granting a distinct passive aura. */
+export type DragonId = "blaze" | "icey" | "speedy" | "elder";
+
+/** Active dragon abilities (parallel to AbilityId; reuses cooldown plumbing). */
+export type DragonAbilityId = "blazeBreath";
+
+/** What kind of passive bonus a hatched dragon contributes. */
+export type DragonAuraKind =
+  | "towerDamage" // +% tower damage
+  | "enemySlow" // global enemy speed reduction
+  | "fireRate" // +% tower fire rate
+  | "all"; // a smaller slice of every other aura
+
+export interface DragonDef {
+  id: DragonId;
+  name: string;
+  /** Short flavour line for the sanctuary roster. */
+  desc: string;
+  /** Display colour (renderer + UI accents). */
+  color: string;
+  /** Trust spent to hatch this dragon. */
+  hatchCost: number;
+  /** Passive aura kind + per-dragon magnitude. */
+  aura: DragonAuraKind;
+  auraMagnitude: number;
+  /** Optional active ability unlocked once hatched. */
+  ability?: DragonAbilityId;
+}
+
+/** Active dragon ability definition (mirrors AbilityDef, mana/powder cost). */
+export interface DragonAbilityDef {
+  id: DragonAbilityId;
+  name: string;
+  desc: string;
+  cost: Partial<ResourceMap>;
+  cooldown: number;
+  /** Whether the ability needs a target click on the battlefield. */
+  targeted: boolean;
+}
+
 export interface DragonState {
   eggDiscovered: boolean;
   eggClaimed: boolean;
+  /** Spendable sanctuary currency (earned from bosses + base claim). */
   trust: number;
+  /** Which dragon types have been hatched (trust spent). */
+  hatched: DragonId[];
+  /** Remaining cooldown per dragon ability (seconds). */
+  abilityCooldowns: Record<DragonAbilityId, number>;
 }
 
 /** Per-upgrade-kind detail for the selected tower's detail panel. */
@@ -355,6 +400,7 @@ export interface GameSnapshot {
   abilities: Record<AbilityId, AbilityState>;
   dragon: DragonState;
   armedAbility: AbilityId | null;
+  armedDragonAbility: DragonAbilityId | null;
   bannerText: string | null;
   eventToast: { title: string; body: string } | null;
 }

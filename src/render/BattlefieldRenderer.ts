@@ -6,6 +6,7 @@ import type { GameEngine } from "../game/GameEngine";
 import { ENEMY_DEFS } from "../game/data/enemies";
 import { TOWER_DEFS } from "../game/data/towers";
 import { SHIP_DEFS } from "../game/data/ships";
+import { DRAGON_DEFS } from "../game/data/dragons";
 import {
   VIRT_W,
   VIRT_H,
@@ -108,9 +109,10 @@ export class BattlefieldRenderer {
     this.drawProjectiles();
     this.drawTowers();
     this.drawShips();
+    this.drawDragons();
 
-    // Armed-ability targeting hint
-    if (this.engine.armedAbility) {
+    // Armed-ability targeting hint (player or dragon ability)
+    if (this.engine.armedAbility || this.engine.armedDragonAbility) {
       this.drawArmedHint();
     }
   }
@@ -426,6 +428,50 @@ export class BattlefieldRenderer {
       ctx.stroke();
       ctx.restore();
     }
+  }
+
+  /**
+   * Hatched dragons circle slowly above the island nursery, each at a slightly
+   * different radius and phase. Purely cosmetic; reads the engine's hatched
+   * list directly so it stays in sync without a snapshot.
+   */
+  private drawDragons(): void {
+    const hatched = this.engine.dragons.state.hatched;
+    if (hatched.length === 0) return;
+    const ctx = this.ctx;
+    const time = this.engine.world.time;
+    const cx = CENTER.x;
+    const cy = CENTER.y;
+
+    hatched.forEach((id, i) => {
+      const def = DRAGON_DEFS[id];
+      const orbitR = 40 + i * 12;
+      const phase = (i / hatched.length) * Math.PI * 2;
+      const angle = time * 0.6 + phase;
+      const vx = cx + Math.cos(angle) * orbitR;
+      const vy = cy + Math.sin(angle) * orbitR;
+      const x = this.tx(vx);
+      const y = this.ty(vy);
+      // Body
+      ctx.beginPath();
+      ctx.arc(x, y, this.s(8), 0, Math.PI * 2);
+      ctx.fillStyle = def.color;
+      ctx.fill();
+      ctx.strokeStyle = "rgba(0,0,0,0.4)";
+      ctx.lineWidth = this.s(1.5);
+      ctx.stroke();
+      // Simple flapping wings (two short strokes perpendicular to travel).
+      const flap = Math.sin(time * 8 + phase) * 0.5;
+      ctx.strokeStyle = hexAlpha(def.color, 0.85);
+      ctx.lineWidth = this.s(2);
+      const wing = this.s(9);
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.lineTo(x - wing, y - wing * (0.6 + flap));
+      ctx.moveTo(x, y);
+      ctx.lineTo(x + wing, y - wing * (0.6 - flap));
+      ctx.stroke();
+    });
   }
 
   private drawArmedHint(): void {

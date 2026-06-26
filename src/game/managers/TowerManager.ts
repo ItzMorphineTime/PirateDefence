@@ -108,14 +108,18 @@ export class TowerManager {
     return 1 + tower.levels.dmg * TOWER_UPGRADE.dmgPerLevel;
   }
 
-  /** Effective fire interval for a tower, reduced by its `rate` upgrade level. */
-  effectiveFireInterval(tower: Tower): number {
+  /**
+   * Effective fire interval for a tower, reduced by its `rate` upgrade level
+   * and (globally) by any Speedy/Elder dragon fire-rate aura.
+   */
+  effectiveFireInterval(world: World, tower: Tower): number {
     const base = TOWER_DEFS[tower.defId].fireInterval;
     const mult = Math.max(
       TOWER_UPGRADE.rateFloor,
       1 - tower.levels.rate * TOWER_UPGRADE.ratePerLevel
     );
-    return base * mult;
+    // Higher fire-rate aura → shorter interval (faster shots).
+    return (base * mult) / world.bonuses.towerFireRateMult;
   }
 
   /** Tick all towers: target acquisition + firing (spawns projectiles). */
@@ -134,7 +138,7 @@ export class TowerManager {
       if (!target) continue;
 
       fireProjectile(tower, target);
-      tower.cooldown = this.effectiveFireInterval(tower);
+      tower.cooldown = this.effectiveFireInterval(world, tower);
     }
   }
 

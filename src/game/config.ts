@@ -56,12 +56,42 @@ export const WAVE = {
   bossHpMultiplier: 14,
 };
 
-// --- Dragon hook ---
+// --- Dragon sanctuary ---
 export const DRAGON_EGG_WAVE = 5;
-export const DRAGON_TRUST_PER_BOSS = 3;
-/** Passive tower-damage bonus per Dragon Trust point (claimed egg gives base). */
-export const DRAGON_TRUST_DAMAGE_BONUS = 0.02; // +2% tower dmg per trust
-export const DRAGON_EGG_BASE_TRUST = 1;
+/** Trust earned per boss defeated (Trust is the spend-to-hatch currency). */
+export const DRAGON_TRUST_PER_BOSS = 5;
+/** Trust granted the moment the egg is claimed (a small head start). */
+export const DRAGON_EGG_BASE_TRUST = 4;
+/** Trust earned each time a (non-boss) wave is cleared after claiming the egg. */
+export const DRAGON_TRUST_PER_WAVE = 1;
+
+/**
+ * Per-dragon hatch costs (in Trust) and passive aura magnitudes. Hatching a
+ * dragon permanently activates its aura; the Elder grants a smaller slice of
+ * every other aura at once.
+ */
+export const DRAGON = {
+  // Hatch costs (Trust).
+  blazeHatchCost: 6,
+  iceyHatchCost: 8,
+  speedyHatchCost: 10,
+  elderHatchCost: 18,
+  // Aura magnitudes.
+  blazeTowerDamage: 0.2, // +20% tower damage
+  iceyEnemySlow: 0.18, // enemies move 18% slower
+  speedyFireRate: 0.18, // +18% tower fire rate
+  elderAll: 0.1, // Elder contributes +10% of each of the above
+  /** Lowest the global enemy-speed multiplier may fall to from slow auras. */
+  enemySlowFloor: 0.4,
+};
+
+/** Active dragon ability tunables (Blaze Breath). */
+export const DRAGON_ABILITY_TUNING = {
+  blazeBreathDamage: 130,
+  blazeBreathRadius: 110,
+  blazeBreathBurnDuration: 4,
+  blazeBreathBurnDps: 14,
+};
 
 // --- Status effects (defaults; per-source values may override) ---
 export const STATUS = {
@@ -94,7 +124,7 @@ export const SPEED_OPTIONS = [1, 3, 6];
 
 // --- Save ---
 export const SAVE_KEY = "tidehold_save_v1";
-export const SAVE_VERSION = 2;
+export const SAVE_VERSION = 3;
 export const AUTOSAVE_INTERVAL = 8; // seconds (real time)
 
 /** DPS is averaged over this rolling window (seconds). */

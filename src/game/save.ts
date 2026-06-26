@@ -61,6 +61,23 @@ const MIGRATIONS: Record<number, (save: AnySave) => AnySave> = {
       })),
     };
   },
+  // v2 -> v3: dragon sanctuary roster. Backfill the hatched list + ability
+  // cooldown map so pre-sanctuary saves load with no dragons hatched.
+  2: (old) => {
+    const dragon =
+      old.dragon && typeof old.dragon === "object"
+        ? (old.dragon as Record<string, unknown>)
+        : {};
+    return {
+      ...old,
+      version: 3,
+      dragon: {
+        ...dragon,
+        hatched: Array.isArray(dragon.hatched) ? dragon.hatched : [],
+        abilityCooldowns: { blazeBreath: 0 },
+      },
+    };
+  },
 };
 
 export function loadGame(): SaveData | null {

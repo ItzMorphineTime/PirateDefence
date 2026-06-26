@@ -6,7 +6,13 @@ import { BUILDABLE_TOWERS, TOWER_DEFS } from "../game/data/towers";
 import { BUILDABLE_SHIPS, SHIP_DEFS } from "../game/data/ships";
 import { CostLabel } from "./costUtil";
 import { fmt } from "../game/math";
-import { DRAGON_TRUST_DAMAGE_BONUS } from "../game/config";
+import {
+  DRAGON_DEFS,
+  DRAGON_LIST,
+  DRAGON_ABILITY_DEFS,
+  DRAGON_ABILITY_LIST,
+  DRAGON_ABILITY_OWNER,
+} from "../game/data/dragons";
 
 type Tab = "towers" | "fleet" | "treasury" | "dragons";
 
@@ -54,7 +60,7 @@ export function UpgradePanel({
         )}
         {tab === "fleet" && <FleetTab engine={engine} snap={snap} />}
         {tab === "treasury" && <UpgradeGroup engine={engine} snap={snap} groupIndex={2} />}
-        {tab === "dragons" && <DragonsTab snap={snap} />}
+        {tab === "dragons" && <DragonsTab engine={engine} snap={snap} />}
       </div>
     </>
   );
@@ -186,7 +192,30 @@ function UpgradeGroup({
   );
 }
 
-function DragonsTab({ snap }: { snap: GameSnapshot }) {
+/** Short, human-readable summary of a dragon's passive aura. */
+function auraLabel(magnitude: number, kind: string): string {
+  const pct = Math.round(magnitude * 100);
+  switch (kind) {
+    case "towerDamage":
+      return `+${pct}% tower damage`;
+    case "enemySlow":
+      return `Enemies move ${pct}% slower`;
+    case "fireRate":
+      return `+${pct}% tower fire rate`;
+    case "all":
+      return `+${pct}% to every dragon gift`;
+    default:
+      return "";
+  }
+}
+
+function DragonsTab({
+  engine,
+  snap,
+}: {
+  engine: GameEngine;
+  snap: GameSnapshot;
+}) {
   const d = snap.dragon;
   if (!d.eggDiscovered) {
     return (
@@ -204,7 +233,6 @@ function DragonsTab({ snap }: { snap: GameSnapshot }) {
       </div>
     );
   }
-  const bonus = Math.round(d.trust * DRAGON_TRUST_DAMAGE_BONUS * 100);
   return (
     <>
       <div className="section-title">Dragon Sanctuary</div>
@@ -214,14 +242,97 @@ function DragonsTab({ snap }: { snap: GameSnapshot }) {
             Dragon Trust: {fmt(d.trust)}
           </span>
           <span className="desc">
-            All towers deal +{bonus}% damage. Earn more Trust by defeating bosses.
+            Spend Trust to hatch dragons. Earn more by defeating bosses and
+            clearing waves.
           </span>
         </span>
       </div>
-      <div className="hint">
-        More dragon types, hatch timers, sanctuary upgrades, and dragon abilities
-        will arrive as the Tidehold grows.
-      </div>
+
+      <div className="section-title">Hatch Dragons</div>
+      {DRAGON_LIST.map((id) => {
+        const def = DRAGON_DEFS[id];
+        const hatched = d.hatched.includes(id);
+        const affordable = d.trust >= def.hatchCost;
+        return (
+          <button
+            key={id}
+            className="buy-row"
+            style={hatched ? { cursor: "default", opacity: 0.85 } : undefined}
+            disabled={hatched || !affordable}
+            onClick={() => !hatched && engine.hatchDragon(id)}
+          >
+            <span
+              className="dot"
+              style={{
+                background: def.color,
+                width: 11,
+                height: 11,
+                borderRadius: "50%",
+              }}
+            />
+            <span className="info">
+              <span className="name">
+                {def.name}
+                {hatched && <span className="lvl"> Hatched</span>}
+              </span>
+              <span className="desc">{auraLabel(def.auraMagnitude, def.aura)}</span>
+            </span>
+            {!hatched && (
+              <span className="cost" style={{ color: "var(--trust)" }}>
+                {fmt(def.hatchCost)} Trust
+              </span>
+            )}
+          </button>
+        );
+      })}
+
+      <DragonAbilities engine={engine} snap={snap} />
+    </>
+  );
+}
+
+function DragonAbilities({
+  engine,
+  snap,
+}: {
+  engine: GameEngine;
+  snap: GameSnapshot;
+}) {
+  const d = snap.dragon;
+  // Only show abilities whose owning dragon has hatched.
+  const owned = DRAGON_ABILITY_LIST.filter((id) =>
+    d.hatched.includes(DRAGON_ABILITY_OWNER[id])
+  );
+  if (owned.length === 0) return null;
+  return (
+    <>
+      <div className="section-title">Dragon Abilities</div>
+      {owned.map((id) => {
+        const def = DRAGON_ABILITY_DEFS[id];
+        const cd = d.abilityCooldowns[id] ?? 0;
+        const ready = cd <= 0;
+        const armed = snap.armedDragonAbility === id;
+        const affordable = engine.canAfford(def.cost);
+        return (
+          <button
+            key={id}
+            className={`buy-row${armed ? " armed" : ""}`}
+            style={armed ? { borderColor: "var(--accent)" } : undefined}
+            disabled={!ready || !affordable}
+            onClick={() => engine.armDragonAbility(id)}
+          >
+            <span className="info">
+              <span className="name">{def.name}</span>
+              <span className="desc">
+                {ready ? def.desc : `Recharging… ${cd.toFixed(1)}s`}
+              </span>
+            </span>
+            <span className="cost">
+              <CostLabel cost={def.cost} resources={snap.resources} />
+            </span>
+          </button>
+        );
+      })}
     </>
   );
 }
