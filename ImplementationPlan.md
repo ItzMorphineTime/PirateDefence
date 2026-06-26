@@ -33,7 +33,7 @@
 | Phase 2 — Towers & Magic Towers | ✅ Done | 3 standard + 5 magic towers, behavior flags, upgrades, renderer |
 | Phase 3 — Fleet Expansion | ✅ Done | 4 new ship classes, behavior flags, outer-ring capital, save compat |
 | Phase 4 — Dragon System | ✅ Done | 4 hatchable dragons (Blaze/Icey/Speedy/Elder), Trust-spend hatching, passive auras, Blaze Breath active ability, sanctuary roster UI, circling-dragon renderer |
-| Phase 5 — Pirate King Factions | ⬜ Not started | `FactionManager`, faction waves & counters |
+| Phase 5 — Pirate King Factions | ✅ Done | 5 factions rotating by wave band, 10 faction enemies (swarm/armored/fast/healer/reward), faction bosses, regen + heal-aura behaviors, 2 counter-upgrades (Armor-Piercing, Tidal Nets), faction banner/topbar indicator |
 | Phase 6 — Corruption & Crown Shard | ⬜ Not started | Risk/reward forbidden power |
 | Phase 7 — Prestige | ⬜ Not started | `PrestigeManager`, meta-progression |
 | Phase 8 — Captains, Resources, Automation | ⬜ Not started | Depth + idle systems |
@@ -276,23 +276,34 @@ dragons circle the island, and saves persist via the v2→v3 migration.
 
 **Depends on:** Phases 1–2 (status/damage pipeline, counter mechanics).
 
-- [ ] **5.1 `FactionManager`.** New manager that selects an active faction per
-  run/region and biases the spawn pool. Use the reserved `Family` tags. _Files:_
-  new `managers/FactionManager.ts`, `GameEngine.ts`.
-- [ ] **5.2 Faction enemies.** Add `EnemyId`s + `ENEMY_DEFS` with faction
-  gimmicks (e.g., shielded, fast-swarm, healer, summoner). Extend `EnemyDef`
-  with behavior flags; honor in `EnemyManager`. _Files:_ `types.ts`,
-  `data/enemies.ts`, `EnemyManager.ts`.
-- [ ] **5.3 Faction waves & bosses.** `WaveManager.buildQueue` already special-
-  cases boss waves; extend it to pull faction-specific bosses and escorts.
-  _Files:_ `WaveManager.ts`.
-- [ ] **5.4 Counter-upgrades.** Add upgrades that hard-counter faction gimmicks
-  (armor-shred vs shielded, splash vs swarms). _Files:_ `data/upgrades.ts`.
-- [ ] **5.5 UI.** Surface the active faction (banner/topbar) and counter hints.
-  _Files:_ `TopBar.tsx`, `WaveBanner.tsx`.
+- [x] **5.1 `FactionManager`.** New stateless manager that derives the active
+  faction from the wave number — **rotating by wave band** (each block of
+  `WAVE.bossEvery` waves is one faction, cycling `FACTION_ORDER`). It injects the
+  faction's signature enemy into the spawn pool and supplies the band's boss.
+  _Files:_ new `managers/FactionManager.ts`, new `data/factions.ts`,
+  `GameEngine.ts` (constructs it, passes into `WaveManager`).
+- [x] **5.2 Faction enemies.** Added 10 `EnemyId`s + `ENEMY_DEFS` — a signature
+  + boss per faction: Crimson (swarmers), Ironhull (armored bulwarks),
+  Stormcallers (fast skimmers), Drowned (self-heal menders + heal aura), Goldhand
+  (reward-rich). Extended `EnemyDef` with `faction`, `regenPerSec`,
+  `healAuraPerSec`/`healRadius`; honored via `EnemyManager.applyHealing()`.
+  _Files:_ `types.ts`, `data/enemies.ts`, `EnemyManager.ts`.
+- [x] **5.3 Faction waves & bosses.** `WaveManager.buildQueue` now pulls the
+  active faction's boss (via `FactionManager.bossForWave`) and `pickNormal` draws
+  from `SPAWN_POOL` + the faction signature entry. Boss HP scaling keys off
+  `EnemyDef.isBoss` (not a hardcoded id). _Files:_ `WaveManager.ts`.
+- [x] **5.4 Counter-upgrades.** Two new upgrades whose effect is applied by every
+  **tower** hit (via a `fromTower` projectile flag + `world.bonuses`):
+  Armor-Piercing Munitions (`armorShred` status, counters Ironhull) and Tidal
+  Nets (`slow` status, counters Stormcallers). _Files:_ `data/upgrades.ts`,
+  `bonuses.ts`, `ProjectileManager.ts`, `GameEngine.ts`, `types.ts`.
+- [x] **5.5 UI.** TopBar shows a "Pirate King" chip (faction-coloured, counter
+  hint on hover); WaveBanner tints to the faction colour and prints the counter
+  hint; band-start + faction-boss banners announce the active Pirate King.
+  _Files:_ `TopBar.tsx`, `WaveBanner.tsx`, `GameEngine.ts`.
 
-**Acceptance:** at least two factions with distinct enemies/bosses, a working
-counter-upgrade, and visible faction indication.
+**Acceptance:** ✅ five factions with distinct enemies/bosses, two working
+counter-upgrades, and visible faction indication (topbar + banner).
 
 ### Phase 6 — Corruption & Crown Shard
 
@@ -462,6 +473,30 @@ A task is `[x]` only when **all** hold:
 
 > Newest first. One entry per meaningful change. Format: `YYYY-MM-DD — area — summary`.
 
+- 2026-06-26 — engine/ui — Implemented **Phase 5 — The Five Pirate King
+  Factions**. Resolved the faction-selection decision as **rotating by wave
+  band** (`band = floor((wave-1) / WAVE.bossEvery) % FACTION_ORDER.length`),
+  cycling crimson → ironhull → stormcallers → drowned → goldhand so each 25-wave
+  band culminates in that faction's boss. Added `FactionId`/`FactionDef` types, a
+  data-driven `data/factions.ts` (`FACTION_DEFS` + `FACTION_ORDER`), and a
+  stateless `FactionManager` (derives the active faction purely from
+  `WaveManager.wave`). `WaveManager` now injects each faction's **signature
+  enemy** into the spawn pool and pulls the band boss from the faction; boss-HP
+  scaling generalized from a hardcoded `"captain"` check to `EnemyDef.isBoss`.
+  Added **10 faction enemies** (`crimsonSwarmer`/`crimsonReaver`,
+  `ironhullBulwark`/`ironhullDreadnought`, `stormSkimmer`/`stormHerald`,
+  `drownedMender`/`drownedLeviathan`, `goldhandFactor`/`goldhandKingpin`) with new
+  behavior flags honored by `EnemyManager.applyHealing` — `regenPerSec` (self-heal)
+  and `healAuraPerSec`/`healRadius` (Drowned menders heal nearby allies). Added two
+  **counter-upgrades** (`armorPiercing` → Armor-Piercing Munitions vs Ironhull;
+  `tidalNets` → Tidal Nets vs Stormcallers) that fold into `computeBonuses`
+  (`counterArmorShred`/`counterSlowFactor`, `COUNTER_STATUS` tunables) and apply as
+  global tower-hit statuses via a new `fromTower` projectile flag in
+  `ProjectileManager.hit` (ships excluded). Surfaced the active faction in the UI:
+  a faction-coloured **Pirate King** chip in `TopBar` (counter hint on hover) and a
+  faction-tinted `WaveBanner` with the counter hint as sub-text; `GameEngine`
+  emits `activeFaction` in the snapshot and shows band-start/boss banners.
+  `npm run build` passes.
 - 2026-06-26 — engine/ui — Implemented **Phase 4 — Dragon System**. Added four
   hatchable dragons (`DragonId` Blaze/Icey/Speedy/Elder) in a new `data/dragons.ts`,
   with `DRAGON` config tunables (hatch costs, aura magnitudes, ability tuning) and
@@ -557,8 +592,10 @@ A task is `[x]` only when **all** hold:
   (Blaze/Icey/Speedy/Elder), each hatched by **spending Trust** (no real-time
   timers), each granting a distinct passive aura; Blaze also unlocks the Blaze
   Breath active ability. New dragons are pure data (`DragonId` + `DRAGON_DEFS`).
-- [!] **Faction selection** (Phase 5): one faction per run, per region, or
-  rotating by wave band?
+- [x] **Faction selection** (Phase 5): ~~one faction per run, per region, or
+  rotating by wave band?~~ Resolved → **rotating by wave band**. Each block of
+  `WAVE.bossEvery` (25) waves is themed by one faction, cycling `FACTION_ORDER`,
+  so a band always culminates in that faction's boss wave.
 - [!] **Prestige currency source** (Phase 7): waves, bosses, trust, or a blend?
 - [x] **Per-tower upgrade model** (Phase 9.5): ~~independent levels vs single
   tier; gold-only vs gold+salvage cost.~~ **Resolved:** three independent

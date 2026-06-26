@@ -1,14 +1,17 @@
 import type { EnemyId } from "../types";
 import type { World } from "../world";
 import { WAVE } from "../config";
-import { SPAWN_POOL } from "../data/enemies";
+import { ENEMY_DEFS, SPAWN_POOL, type SpawnEntry } from "../data/enemies";
 import type { EnemyManager } from "./EnemyManager";
+import type { FactionManager } from "./FactionManager";
 
 export class WaveManager {
   wave = 0;
   active = false;
   private toSpawn: EnemyId[] = [];
   private spawnTimer = 0;
+
+  constructor(private factions: FactionManager) {}
 
   isBossWave(wave = this.wave): boolean {
     return wave > 0 && wave % WAVE.bossEvery === 0;
@@ -39,8 +42,8 @@ export class WaveManager {
 
   private buildQueue(): EnemyId[] {
     if (this.isBossWave()) {
-      // A boss plus a small escort.
-      const queue: EnemyId[] = ["captain"];
+      // The active faction's boss plus a small escort drawn from its pool.
+      const queue: EnemyId[] = [this.factions.bossForWave(this.wave)];
       const escort = Math.floor(this.enemyCount() * 0.5);
       for (let i = 0; i < escort; i++) queue.push(this.pickNormal());
       return queue;
@@ -51,8 +54,13 @@ export class WaveManager {
     return queue;
   }
 
+  /** Effective spawn pool = neutral starters + the active faction's signature. */
+  private pool(): SpawnEntry[] {
+    return [...SPAWN_POOL, this.factions.signatureSpawnEntry(this.wave)];
+  }
+
   private pickNormal(): EnemyId {
-    const eligible = SPAWN_POOL.filter((s) => this.wave >= s.minWave);
+    const eligible = this.pool().filter((s) => this.wave >= s.minWave);
     const total = eligible.reduce((a, s) => a + s.weight, 0);
     let r = Math.random() * total;
     for (const s of eligible) {
@@ -70,7 +78,9 @@ export class WaveManager {
       this.spawnTimer -= dt;
       while (this.spawnTimer <= 0 && this.toSpawn.length > 0) {
         const id = this.toSpawn.shift()!;
-        const scale = id === "captain" ? this.hpScale() * WAVE.bossHpMultiplier : this.hpScale();
+        const scale = ENEMY_DEFS[id].isBoss
+          ? this.hpScale() * WAVE.bossHpMultiplier
+          : this.hpScale();
         enemies.spawn(world, id, scale);
         this.spawnTimer += WAVE.spawnInterval;
       }

@@ -1,16 +1,24 @@
 import type { GameSnapshot } from "../game/types";
 import { fmt } from "../game/math";
+import { FACTION_DEFS } from "../game/data/factions";
 
 export function TopBar({ snap }: { snap: GameSnapshot }) {
   const hpFrac = snap.maxIslandHp > 0 ? snap.islandHp / snap.maxIslandHp : 0;
   const mins = Math.floor(snap.timeSurvived / 60);
   const secs = Math.floor(snap.timeSurvived % 60);
+  const faction = FACTION_DEFS[snap.activeFaction];
 
   return (
     <div className="topbar">
       <div className="stat-chip">
         <div className="label">Wave</div>
         <div className="value">{snap.wave}</div>
+      </div>
+      <div className="stat-chip" title={faction.counterHint}>
+        <div className="label">Pirate King</div>
+        <div className="value" style={{ color: faction.color }}>
+          {faction.name}
+        </div>
       </div>
       <div className="stat-chip">
         <div className="label">Enemies</div>

@@ -224,4 +224,51 @@ export class TowerManager {
     tower.levels[kind]++;
     this.recomputeRanges(world);
   }
+
+  /**
+   * Total resources sunk into a tower: its build cost plus every per-tower
+   * upgrade level already paid for (the cost of each level mirrors
+   * `upgradeCost` at the level *before* it was bought).
+   */
+  investedValue(tower: Tower): Partial<ResourceMap> {
+    const def = TOWER_DEFS[tower.defId];
+    const total: Partial<ResourceMap> = { ...def.buildCost };
+    const addCost = (cost: Partial<ResourceMap>): void => {
+      for (const k in cost) {
+        const id = k as keyof ResourceMap;
+        total[id] = (total[id] ?? 0) + (cost[id] ?? 0);
+      }
+    };
+    for (const kind of ["dmg", "range", "rate"] as TowerUpgradeKind[]) {
+      for (let lvl = 0; lvl < tower.levels[kind]; lvl++) {
+        const scale = Math.pow(TOWER_UPGRADE.costGrowth, lvl);
+        addCost({
+          gold: Math.round(TOWER_UPGRADE.costGoldBase * scale),
+          salvage: Math.round(TOWER_UPGRADE.costSalvageBase * scale),
+        });
+      }
+    }
+    return total;
+  }
+
+  /** Refund map for selling a tower: 50% of its invested value, floored. */
+  sellValue(tower: Tower): Partial<ResourceMap> {
+    const invested = this.investedValue(tower);
+    const refund: Partial<ResourceMap> = {};
+    for (const k in invested) {
+      const id = k as keyof ResourceMap;
+      const v = Math.floor((invested[id] ?? 0) * TOWER_UPGRADE.sellRefund);
+      if (v > 0) refund[id] = v;
+    }
+    return refund;
+  }
+
+  /** Remove a tower by uid, freeing its slot. Returns true if found. */
+  remove(world: World, uid: number): boolean {
+    const index = world.towers.findIndex((t) => t.uid === uid);
+    if (index === -1) return false;
+    world.towers.splice(index, 1);
+    this.recomputeRanges(world);
+    return true;
+  }
 }

@@ -24,6 +24,17 @@ export const UP = {
   maxMana: 25, // +25 max mana / level
   manaRegen: 1.2, // +1.2 mana/sec / level
   goldGain: 0.1, // +10% gold / level
+  // --- Phase 5 faction counters ---
+  armorPiercing: 2, // +2 flat armor shred on every tower hit / level
+  tidalNets: 0.06, // tower hits slow enemies an extra 6% / level (stacks down)
+};
+
+/** Duration (seconds) of the counter-statuses applied by tower hits. */
+export const COUNTER_STATUS = {
+  shredDuration: 3,
+  slowDuration: 1.6,
+  /** Slowest the tidal-net slow factor may reach (0.4 = 60% slow). */
+  slowFloor: 0.4,
 };
 
 /** Towers whose damage/range scale with the shared "magic" upgrades. */
@@ -238,6 +249,24 @@ export const UPGRADE_DEFS: Record<UpgradeId, UpgradeDef> = {
     maxLevel: -1,
     effectLabel: (l) => `+${pct(l * UP.goldGain)} gold`,
   },
+  armorPiercing: {
+    id: "armorPiercing",
+    name: "Armor-Piercing Munitions",
+    desc: "Tower hits shred enemy armor — counters the Ironhull Armada.",
+    baseCost: { gold: 140, powder: 18 },
+    costScaling: 1.6,
+    maxLevel: 6,
+    effectLabel: (l) => (l > 0 ? `-${l * UP.armorPiercing} armor on hit` : "no shred"),
+  },
+  tidalNets: {
+    id: "tidalNets",
+    name: "Tidal Nets",
+    desc: "Tower hits ensnare and slow — counters the Stormcaller Covenant.",
+    baseCost: { gold: 130, salvage: 16 },
+    costScaling: 1.6,
+    maxLevel: 6,
+    effectLabel: (l) => (l > 0 ? `${pct(l * UP.tidalNets)} slow on hit` : "no slow"),
+  },
 };
 
 export const UPGRADE_LIST: UpgradeId[] = Object.keys(UPGRADE_DEFS) as UpgradeId[];
@@ -260,6 +289,8 @@ export const UPGRADE_GROUPS: { title: string; ids: UpgradeId[] }[] = [
       "harpoonDmg",
       "harpoonRange",
       "watchtowerAura",
+      "armorPiercing",
+      "tidalNets",
     ],
   },
   {

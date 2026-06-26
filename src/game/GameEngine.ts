@@ -19,6 +19,7 @@ import { computeBonuses } from "./bonuses";
 import { ResourceManager } from "./managers/ResourceManager";
 import { UpgradeManager } from "./managers/UpgradeManager";
 import { WaveManager } from "./managers/WaveManager";
+import { FactionManager } from "./managers/FactionManager";
 import { EnemyManager } from "./managers/EnemyManager";
 import { TowerManager } from "./managers/TowerManager";
 import { ShipManager } from "./managers/ShipManager";
@@ -29,12 +30,15 @@ import { TOWER_DEFS } from "./data/towers";
 import { SHIP_DEFS } from "./data/ships";
 import { ABILITY_DEFS } from "./data/abilities";
 import { DRAGON_ABILITY_DEFS } from "./data/dragons";
+import { FACTION_DEFS } from "./data/factions";
+import { ENEMY_DEFS } from "./data/enemies";
 import {
   BASE_ISLAND_HP,
   DPS_WINDOW,
   SPEED_OPTIONS,
   AUTOSAVE_INTERVAL,
   TOWER_SLOT_COUNT,
+  WAVE,
 } from "./config";
 import { saveGame, type SaveData } from "./save";
 
@@ -46,6 +50,7 @@ export class GameEngine {
   world: World;
   res: ResourceManager;
   up: UpgradeManager;
+  factions: FactionManager;
   waves: WaveManager;
   enemies: EnemyManager;
   towers: TowerManager;
@@ -86,7 +91,8 @@ export class GameEngine {
   constructor(save?: SaveData | null) {
     this.res = new ResourceManager(save?.resources);
     this.up = new UpgradeManager(save?.upgrades);
-    this.waves = new WaveManager();
+    this.factions = new FactionManager();
+    this.waves = new WaveManager(this.factions);
     this.enemies = new EnemyManager();
     this.towers = new TowerManager();
     this.ships = new ShipManager();
@@ -234,7 +240,7 @@ export class GameEngine {
         def.color,
         target.uid,
         def.projectileSpeed,
-        { pierceCount: def.pierceCount, status: def.appliesStatus }
+        { pierceCount: def.pierceCount, status: def.appliesStatus, fromTower: true }
       );
     });
 
@@ -363,11 +369,21 @@ export class GameEngine {
     this.waves.startNextWave();
     this.betweenWaves = false;
     const w = this.waves.wave;
+    const faction = FACTION_DEFS[this.factions.factionForWave(w)];
     if (this.waves.isBossWave(w)) {
-      this.showBanner(`Wave ${w}: Egg-Runner Captain`, 4);
+      const boss = ENEMY_DEFS[this.factions.bossForWave(w)];
+      this.showBanner(`Wave ${w}: ${boss.name}`, 4);
+    } else if (this.isBandStart(w)) {
+      // First wave of a new faction band — announce the Pirate King.
+      this.showBanner(`Wave ${w}: ${faction.name} Approaches`, 3.5);
     } else if (w % 10 === 0) {
       this.showBanner(`Wave ${w}: The Tide Rises`, 3);
     }
+  }
+
+  /** True on the first wave of a faction band (wave 1, bossEvery+1, ...). */
+  private isBandStart(wave: number): boolean {
+    return wave > 1 && (wave - 1) % WAVE.bossEvery === 0;
   }
 
   buildTower(defId: TowerId, slotIndex: number): boolean {
@@ -514,6 +530,22 @@ export class GameEngine {
     return true;
   }
 
+  /**
+   * Sell a placed tower, refunding 50% of its invested value (build cost plus
+   * every per-tower upgrade paid), freeing its slot and clearing selection.
+   */
+  sellTower(uid: number): boolean {
+    const tower = this.towers.byUid(this.world, uid);
+    if (!tower) return false;
+    const refund = this.towers.sellValue(tower);
+    if (!this.towers.remove(this.world, uid)) return false;
+    this.res.addMap(refund);
+    if (this.selectedTowerUid === uid) this.selectedTowerUid = null;
+    this.refreshDerived();
+    this.pushSnapshot();
+    return true;
+  }
+
   claimEgg(): void {
     this.dragons.claimEgg();
     this.eventToast = null;
@@ -601,6 +633,7 @@ export class GameEngine {
       canStepWave: this.canStepWave(),
       gameOver: this.gameOver,
       bossWave: this.waves.isBossWave(),
+      activeFaction: this.factions.factionForWave(Math.max(1, this.waves.wave)),
       upgradeLevels: { ...this.up.levels },
       shipsOwned: { ...w.shipsOwned },
       towerCount: w.towers.length,

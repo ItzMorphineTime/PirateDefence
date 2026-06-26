@@ -1,6 +1,7 @@
 import type { Enemy, Projectile, StatusApplication, Vec2 } from "../types";
 import type { World } from "../world";
 import { ENEMY_DEFS } from "../data/enemies";
+import { COUNTER_STATUS } from "../data/upgrades";
 import { dist, nextUid } from "../math";
 import { applyDamage, applyStatus } from "../combat";
 import type { ResourceManager } from "./ResourceManager";
@@ -11,6 +12,8 @@ export interface ProjectileOpts {
   status?: StatusApplication;
   /** Bypass enemy armor (Ghost Frigate). */
   ignoreArmor?: boolean;
+  /** Tower shots carry the global faction counter-statuses (Phase 5). */
+  fromTower?: boolean;
 }
 
 export class ProjectileManager {
@@ -39,6 +42,7 @@ export class ProjectileManager {
       pierceCount: opts.pierceCount,
       status: opts.status,
       ignoreArmor: opts.ignoreArmor,
+      fromTower: opts.fromTower,
     };
     world.projectiles.push(p);
   }
@@ -153,8 +157,32 @@ export class ProjectileManager {
       onManaFromKill,
       ignoreArmor: p.ignoreArmor,
     });
-    if (p.status && e.hp > 0) {
+    if (e.hp <= 0) return;
+    if (p.status) {
       applyStatus(e, p.status.id, p.status.duration, p.status.magnitude, world.time);
+    }
+    // Phase 5 faction counters: tower hits apply armor-shred / slow if the
+    // player has bought the matching counter-upgrade.
+    if (p.fromTower) {
+      const b = world.bonuses;
+      if (b.counterArmorShred > 0) {
+        applyStatus(
+          e,
+          "armorShred",
+          COUNTER_STATUS.shredDuration,
+          b.counterArmorShred,
+          world.time
+        );
+      }
+      if (b.counterSlowFactor > 0) {
+        applyStatus(
+          e,
+          "slow",
+          COUNTER_STATUS.slowDuration,
+          b.counterSlowFactor,
+          world.time
+        );
+      }
     }
   }
 }

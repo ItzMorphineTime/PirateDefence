@@ -117,6 +117,7 @@ export const TOWER_UPGRADE = {
   costGoldBase: 60,
   costSalvageBase: 20,
   costGrowth: 1.6, // multiplier per existing level
+  sellRefund: 0.5, // fraction of invested value returned when a tower is sold
 };
 
 // --- Speed multipliers ---

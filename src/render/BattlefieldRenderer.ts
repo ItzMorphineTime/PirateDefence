@@ -35,6 +35,48 @@ const SEA_WAVE_LAYERS: {
   { amp: 3.5, len: 110, speed: 34, color: "rgba(90,150,195,0.10)", width: 1.2 },
 ];
 
+/**
+ * Per-faction vessel silhouette tuning. `drawVessel` reads these to vary hull
+ * proportions, sail count/tint, accent ornament, and how much the ship rolls as
+ * it bobs — so each Pirate King fleet reads at a glance without per-enemy art.
+ */
+type VesselAccent = "none" | "ram" | "fin" | "lantern" | "coin";
+interface VesselStyle {
+  bow: number; // bow length as a multiple of unit radius
+  beam: number; // half-width of the hull
+  sails: number; // number of triangular sails (0 = none)
+  sailH: number; // tallest sail height factor
+  sailTint: string; // sail / accent colour
+  accent: VesselAccent;
+  roll: number; // bob-induced roll amount
+}
+
+const ENEMY_STYLES: Record<string, VesselStyle> = {
+  // Neutral starter raiders: plain little skiffs.
+  neutral: { bow: 1.5, beam: 0.85, sails: 1, sailH: 1.1, sailTint: "#f0e2c8", accent: "none", roll: 1 },
+  // Crimson Fleet: lean, blood-sailed swarm cutters.
+  crimson: { bow: 1.7, beam: 0.72, sails: 1, sailH: 1.25, sailTint: "#ff8898", accent: "none", roll: 1.3 },
+  // Ironhull Armada: stubby, wide, armored rams; no sails.
+  ironhull: { bow: 1.25, beam: 1.1, sails: 0, sailH: 0, sailTint: "#aeb8c4", accent: "ram", roll: 0.4 },
+  // Stormcaller Covenant: sleek, finned racers.
+  stormcallers: { bow: 1.9, beam: 0.62, sails: 1, sailH: 1.35, sailTint: "#cdeeff", accent: "fin", roll: 1.6 },
+  // Drowned Court: bulky barges with a ghoul lantern.
+  drowned: { bow: 1.4, beam: 1.0, sails: 1, sailH: 0.95, sailTint: "#7fd8c8", accent: "lantern", roll: 0.7 },
+  // Goldhand Syndicate: fat treasure galleons, twin sails, gilt deck.
+  goldhand: { bow: 1.45, beam: 1.0, sails: 2, sailH: 1.15, sailTint: "#ffe9a0", accent: "coin", roll: 0.6 },
+};
+
+/** Friendly ships share the hull renderer with a clean, two-sail rig. */
+const FRIENDLY_STYLE: VesselStyle = {
+  bow: 1.7,
+  beam: 0.8,
+  sails: 2,
+  sailH: 1.2,
+  sailTint: "#f4ffff",
+  accent: "none",
+  roll: 0.8,
+};
+
 export class BattlefieldRenderer {
   private ctx: CanvasRenderingContext2D;
   private scale = 1;
@@ -323,31 +365,139 @@ export class BattlefieldRenderer {
 
   private drawEnemies(): void {
     const ctx = this.ctx;
+    const time = this.engine.world.time;
     for (const e of this.engine.world.enemies) {
       const def = ENEMY_DEFS[e.defId];
       const x = this.tx(e.pos.x);
       const y = this.ty(e.pos.y);
       const r = this.s(def.radius);
 
-      ctx.beginPath();
-      ctx.arc(x, y, r, 0, Math.PI * 2);
-      ctx.fillStyle = def.color;
-      ctx.fill();
-      if (e.isBoss) {
-        ctx.lineWidth = this.s(3);
-        ctx.strokeStyle = "#ffd9e2";
-        ctx.stroke();
-      }
+      // Enemies sail inward toward the island core; face that heading so the
+      // bow always leads. Derived from position (no stored velocity needed).
+      const heading = Math.atan2(CENTER.y - e.pos.y, CENTER.x - e.pos.x);
+      const style = ENEMY_STYLES[def.faction ?? "neutral"];
 
-      // HP bar
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(heading);
+      this.drawVessel(r, def.color, style, {
+        boss: e.isBoss,
+        bob: Math.sin(time * 3 + e.uid) * 0.12,
+      });
+      ctx.restore();
+
+      // HP bar (screen-aligned, above the vessel)
       const frac = Math.max(0, e.hp / e.maxHp);
       if (frac < 1) {
         const bw = r * 2;
         ctx.fillStyle = "rgba(0,0,0,0.5)";
-        ctx.fillRect(x - bw / 2, y - r - this.s(7), bw, this.s(4));
+        ctx.fillRect(x - bw / 2, y - r - this.s(8), bw, this.s(4));
         ctx.fillStyle = frac > 0.4 ? "#5ad17e" : "#e05858";
-        ctx.fillRect(x - bw / 2, y - r - this.s(7), bw * frac, this.s(4));
+        ctx.fillRect(x - bw / 2, y - r - this.s(8), bw * frac, this.s(4));
       }
+    }
+  }
+
+  /**
+   * Draws a stylised ship in local space with the bow pointing toward +x (so
+   * the caller rotates by the travel heading). `r` is the unit radius; the hull
+   * roughly fits a 2r×2r box. `style` selects faction silhouette accents. Used
+   * for both enemy vessels and (via a friendly palette) allied ships.
+   */
+  private drawVessel(
+    r: number,
+    color: string,
+    style: VesselStyle,
+    opts: { boss?: boolean; bob?: number } = {}
+  ): void {
+    const ctx = this.ctx;
+    const bob = opts.bob ?? 0;
+    ctx.rotate(bob * style.roll);
+
+    // --- Hull: a pointed bow (+x) tapering to a square stern (-x). ---
+    const bowLen = r * style.bow;
+    const beam = r * style.beam;
+    const sternLen = r * 0.7;
+    ctx.beginPath();
+    ctx.moveTo(bowLen, 0); // bow tip
+    ctx.quadraticCurveTo(bowLen * 0.45, beam, -sternLen, beam); // starboard
+    ctx.lineTo(-sternLen, -beam); // stern transom
+    ctx.quadraticCurveTo(bowLen * 0.45, -beam, bowLen, 0); // port
+    ctx.closePath();
+    ctx.fillStyle = color;
+    ctx.fill();
+    ctx.strokeStyle = "rgba(0,0,0,0.45)";
+    ctx.lineWidth = this.s(1.4);
+    ctx.stroke();
+
+    // --- Deck stripe for a touch of depth. ---
+    ctx.beginPath();
+    ctx.moveTo(bowLen * 0.55, 0);
+    ctx.lineTo(-sternLen * 0.7, beam * 0.5);
+    ctx.lineTo(-sternLen * 0.7, -beam * 0.5);
+    ctx.closePath();
+    ctx.fillStyle = hexAlpha("#000000", 0.16);
+    ctx.fill();
+
+    // --- Sail(s): triangular canvas amidships, faction-tinted. ---
+    if (style.sails > 0) {
+      const sailColor = hexAlpha(style.sailTint, opts.boss ? 0.95 : 0.82);
+      for (let i = 0; i < style.sails; i++) {
+        const mastX = bowLen * 0.2 - i * (beam * 0.95);
+        const h = beam * (style.sailH - i * 0.18);
+        ctx.beginPath();
+        ctx.moveTo(mastX, -h);
+        ctx.lineTo(mastX, h);
+        ctx.lineTo(mastX - beam * 0.85, 0);
+        ctx.closePath();
+        ctx.fillStyle = sailColor;
+        ctx.fill();
+        ctx.strokeStyle = hexAlpha("#000000", 0.3);
+        ctx.lineWidth = this.s(0.8);
+        ctx.stroke();
+      }
+    }
+
+    // --- Faction accent: a small mark at the bow. ---
+    if (style.accent === "ram") {
+      // Ironhull: a blunt armored ram spike off the bow.
+      ctx.beginPath();
+      ctx.moveTo(bowLen, 0);
+      ctx.lineTo(bowLen + r * 0.4, beam * 0.25);
+      ctx.lineTo(bowLen + r * 0.4, -beam * 0.25);
+      ctx.closePath();
+      ctx.fillStyle = hexAlpha("#d8dde4", 0.85);
+      ctx.fill();
+    } else if (style.accent === "fin") {
+      // Stormcaller: a swept dorsal fin for a fast, sleek look.
+      ctx.beginPath();
+      ctx.moveTo(-sternLen * 0.2, 0);
+      ctx.lineTo(-sternLen, -beam * 1.1);
+      ctx.lineTo(-sternLen, -beam * 0.2);
+      ctx.closePath();
+      ctx.fillStyle = hexAlpha(style.sailTint, 0.7);
+      ctx.fill();
+    } else if (style.accent === "lantern") {
+      // Drowned: a sickly glow lantern at the bow.
+      ctx.beginPath();
+      ctx.arc(bowLen * 0.6, 0, r * 0.22, 0, Math.PI * 2);
+      ctx.fillStyle = hexAlpha("#9dffe8", 0.9);
+      ctx.fill();
+    } else if (style.accent === "coin") {
+      // Goldhand: a gilt disc on deck.
+      ctx.beginPath();
+      ctx.arc(0, 0, r * 0.26, 0, Math.PI * 2);
+      ctx.fillStyle = hexAlpha("#fff0b0", 0.95);
+      ctx.fill();
+    }
+
+    // --- Boss ring: pink outline halo to keep bosses readable. ---
+    if (opts.boss) {
+      ctx.beginPath();
+      ctx.arc(0, 0, r * 1.15, 0, Math.PI * 2);
+      ctx.strokeStyle = "#ffd9e2";
+      ctx.lineWidth = this.s(2.5);
+      ctx.stroke();
     }
   }
 
@@ -408,24 +558,25 @@ export class BattlefieldRenderer {
 
   private drawShips(): void {
     const ctx = this.ctx;
+    const time = this.engine.world.time;
+    const orbitMult = this.engine.world.bonuses.shipOrbitMult;
     for (const ship of this.engine.world.ships) {
       const def = SHIP_DEFS[ship.defId];
       const pos = this.engine.ships.pos(ship);
       const x = this.tx(pos.x);
       const y = this.ty(pos.y);
+      // A ship orbiting the island travels along the tangent. Velocity of
+      // (cosθ,sinθ)·r is (-sinθ,cosθ)·θ', i.e. heading = angle + π/2 for the
+      // game's counter-clockwise orbit. Bow leads that direction.
+      const heading =
+        ship.angle + (def.orbitSpeed * orbitMult >= 0 ? Math.PI / 2 : -Math.PI / 2);
+      const r = this.s(10);
       ctx.save();
       ctx.translate(x, y);
-      ctx.rotate(ship.angle + Math.PI / 2);
-      ctx.beginPath();
-      ctx.moveTo(0, -this.s(11));
-      ctx.lineTo(this.s(7), this.s(9));
-      ctx.lineTo(-this.s(7), this.s(9));
-      ctx.closePath();
-      ctx.fillStyle = def.color;
-      ctx.fill();
-      ctx.strokeStyle = "rgba(0,0,0,0.4)";
-      ctx.lineWidth = this.s(1.5);
-      ctx.stroke();
+      ctx.rotate(heading);
+      this.drawVessel(r, def.color, FRIENDLY_STYLE, {
+        bob: Math.sin(time * 2.5 + ship.uid) * 0.1,
+      });
       ctx.restore();
     }
   }

@@ -4,7 +4,7 @@
 // ============================================================================
 import type { TowerId, UpgradeId, DragonState } from "./types";
 import type { UpgradeManager } from "./managers/UpgradeManager";
-import { UP, MAGIC_TOWER_IDS } from "./data/upgrades";
+import { UP, MAGIC_TOWER_IDS, COUNTER_STATUS } from "./data/upgrades";
 import { TOWER_DEFS } from "./data/towers";
 import { SHIP_DEFS } from "./data/ships";
 import { BASE_MAX_MANA, BASE_MANA_REGEN, DRAGON } from "./config";
@@ -26,6 +26,10 @@ export interface Bonuses {
   towerFireRateMult: number;
   /** Global enemy speed multiplier from hatched dragons (Icey / Elder); ≤ 1. */
   enemySlowMult: number;
+  /** Flat armor shred applied by every tower hit (Armor-Piercing Munitions). */
+  counterArmorShred: number;
+  /** Slow factor (0..1) applied by every tower hit (Tidal Nets); 0 = none. */
+  counterSlowFactor: number;
 }
 
 export function computeBonuses(up: UpgradeManager, dragon: DragonState): Bonuses {
@@ -40,6 +44,14 @@ export function computeBonuses(up: UpgradeManager, dragon: DragonState): Bonuses
     DRAGON.enemySlowFloor,
     1 - (has("icey") ? DRAGON.iceyEnemySlow : 0) - elder
   );
+
+  // --- Phase 5 faction counters (statuses applied by every tower hit).
+  const counterArmorShred = up.level("armorPiercing") * UP.armorPiercing;
+  const tidalLevel = up.level("tidalNets");
+  const counterSlowFactor =
+    tidalLevel > 0
+      ? Math.max(COUNTER_STATUS.slowFloor, 1 - tidalLevel * UP.tidalNets)
+      : 0;
 
   const isMagic = (id: TowerId): boolean =>
     (MAGIC_TOWER_IDS as readonly string[]).includes(id);
@@ -56,6 +68,8 @@ export function computeBonuses(up: UpgradeManager, dragon: DragonState): Bonuses
     dragonDamageMult,
     towerFireRateMult,
     enemySlowMult,
+    counterArmorShred,
+    counterSlowFactor,
     towerDamageMult: (id: TowerId) => {
       // Convention: each attacking tower has a `{id}Dmg` upgrade.
       let m = 1 + lvl(`${id}Dmg`) * mag(`${id}Dmg`);

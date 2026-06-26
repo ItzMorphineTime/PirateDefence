@@ -10,6 +10,38 @@ export type ResourceMap = Record<ResourceId, number>;
 export type Family = "land" | "sea" | "sky" | "shadow";
 
 // ---------------------------------------------------------------------------
+// Factions (Phase 5 — the Five Pirate Kings)
+// ---------------------------------------------------------------------------
+/** The five Pirate King factions. The active faction rotates by wave band. */
+export type FactionId =
+  | "crimson"
+  | "ironhull"
+  | "stormcallers"
+  | "drowned"
+  | "goldhand";
+
+export interface FactionDef {
+  id: FactionId;
+  name: string;
+  /** Flavour line shown in the wave banner / topbar. */
+  desc: string;
+  /** Theme colour for banner accents. */
+  color: string;
+  /** Family lineage (used for thematic grouping). */
+  family: Family;
+  /** Faction enemy that gets weighted into the normal spawn pool. */
+  signatureEnemy: EnemyId;
+  /** Spawn weight for the signature enemy when this faction is active. */
+  signatureWeight: number;
+  /** Minimum wave before the signature enemy joins the pool. */
+  signatureMinWave: number;
+  /** Boss spawned on this faction's boss waves. */
+  boss: EnemyId;
+  /** One-line hint about which counter-upgrade helps most. */
+  counterHint: string;
+}
+
+// ---------------------------------------------------------------------------
 // Vectors
 // ---------------------------------------------------------------------------
 export interface Vec2 {
@@ -149,7 +181,22 @@ export interface Ship {
 // ---------------------------------------------------------------------------
 // Enemies
 // ---------------------------------------------------------------------------
-export type EnemyId = "raider" | "skiff" | "brute" | "captain";
+export type EnemyId =
+  | "raider"
+  | "skiff"
+  | "brute"
+  | "captain"
+  // --- Phase 5 faction enemies ---
+  | "crimsonSwarmer"
+  | "crimsonReaver"
+  | "ironhullBulwark"
+  | "ironhullDreadnought"
+  | "stormSkimmer"
+  | "stormHerald"
+  | "drownedMender"
+  | "drownedLeviathan"
+  | "goldhandFactor"
+  | "goldhandKingpin";
 
 export interface EnemyDef {
   id: EnemyId;
@@ -163,6 +210,14 @@ export interface EnemyDef {
   /** Resource rewards on kill (before wave scaling for gold). */
   reward: Partial<ResourceMap>;
   color: string;
+  /** Faction this enemy belongs to (undefined = neutral starter pool). */
+  faction?: FactionId;
+  // --- Phase 5 behavior flags (all optional; absent = vanilla) ---
+  /** Self-heal in HP/sec while alive (Drowned Court menders & leviathan). */
+  regenPerSec?: number;
+  /** Heals nearby allied enemies for this much HP/sec within healRadius. */
+  healAuraPerSec?: number;
+  healRadius?: number;
 }
 
 // --- Status effects (burn DoT, slow, stun, armor shred) ---
@@ -209,6 +264,8 @@ export interface Projectile {
   status?: StatusApplication;
   /** If true, this shot bypasses enemy armor (Ghost Frigate). */
   ignoreArmor?: boolean;
+  /** Tower shots carry global faction counter-statuses (Phase 5). */
+  fromTower?: boolean;
 }
 
 export interface Effect {
@@ -263,7 +320,10 @@ export type UpgradeId =
   | "magicPotency"
   | "maxMana"
   | "manaRegen"
-  | "goldGain";
+  | "goldGain"
+  // --- Phase 5 faction counter-upgrades ---
+  | "armorPiercing"
+  | "tidalNets";
 
 export interface UpgradeDef {
   id: UpgradeId;
@@ -371,6 +431,8 @@ export interface SelectedTowerInfo {
   dmg: SelectedTowerUpgrade;
   range: SelectedTowerUpgrade;
   rate: SelectedTowerUpgrade;
+  /** Resources returned if this tower is sold (50% of invested value). */
+  sellValue: Partial<ResourceMap>;
 }
 
 // ---------------------------------------------------------------------------
@@ -393,6 +455,8 @@ export interface GameSnapshot {
   canStepWave: boolean;
   gameOver: boolean;
   bossWave: boolean;
+  /** Pirate King faction governing the current wave band. */
+  activeFaction: FactionId;
   upgradeLevels: Record<UpgradeId, number>;
   shipsOwned: Record<ShipId, number>;
   towerCount: number;
