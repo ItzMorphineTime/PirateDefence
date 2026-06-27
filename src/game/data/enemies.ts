@@ -50,12 +50,12 @@ export const ENEMY_DEFS: Record<EnemyId, EnemyDef> = {
     color: "#d63d5e",
   },
 
-  // ======================= Phase 5: Faction enemies =======================
-  // Crimson Fleet — cheap, fast swarmers. Few HP each but they flood the field;
-  // splash damage is the natural counter.
-  crimsonSwarmer: {
-    id: "crimsonSwarmer",
-    name: "Crimson Swarmer",
+  // ======================= Phase 5: Pirate King enemies =======================
+  // Ashen Reach (Ebon Flameheart) — cheap, fast fire-swarmers. Few HP each but
+  // they flood the field; splash damage is the natural counter.
+  ashSwarmer: {
+    id: "ashSwarmer",
+    name: "Ashfire Swarmer",
     baseHp: 12,
     speed: 52,
     armor: 0,
@@ -64,11 +64,11 @@ export const ENEMY_DEFS: Record<EnemyId, EnemyDef> = {
     isBoss: false,
     reward: { gold: 3 },
     color: "#ff5066",
-    faction: "crimson",
+    faction: "flameheart",
   },
-  crimsonReaver: {
-    id: "crimsonReaver",
-    name: "Crimson Reaver Lord",
+  flameheartReaver: {
+    id: "flameheartReaver",
+    name: "Flameheart Reaver Lord",
     baseHp: 520,
     speed: 40,
     armor: 2,
@@ -77,13 +77,14 @@ export const ENEMY_DEFS: Record<EnemyId, EnemyDef> = {
     isBoss: true,
     reward: { gold: 130, salvage: 28, powder: 14 },
     color: "#ff2e4d",
-    faction: "crimson",
+    faction: "flameheart",
   },
 
-  // Ironhull Armada — heavily armored. Armor-shred / pierce is the counter.
-  ironhullBulwark: {
-    id: "ironhullBulwark",
-    name: "Ironhull Bulwark",
+  // Drowned Crown (Adara Thalassa) — heavily armored leviathan-kin. Armor-shred
+  // / pierce is the counter.
+  tidalBulwark: {
+    id: "tidalBulwark",
+    name: "Tidal Bulwark",
     baseHp: 70,
     speed: 16,
     armor: 10,
@@ -92,11 +93,11 @@ export const ENEMY_DEFS: Record<EnemyId, EnemyDef> = {
     isBoss: false,
     reward: { gold: 12, salvage: 3 },
     color: "#7f8a99",
-    faction: "ironhull",
+    faction: "thalassa",
   },
-  ironhullDreadnought: {
-    id: "ironhullDreadnought",
-    name: "Ironhull Dreadnought",
+  thalassaLeviathan: {
+    id: "thalassaLeviathan",
+    name: "Thalassa Leviathan",
     baseHp: 640,
     speed: 14,
     armor: 16,
@@ -105,14 +106,14 @@ export const ENEMY_DEFS: Record<EnemyId, EnemyDef> = {
     isBoss: true,
     reward: { gold: 150, salvage: 40, powder: 16 },
     color: "#5f6b7a",
-    faction: "ironhull",
+    faction: "thalassa",
   },
 
-  // Stormcaller Covenant — very fast, fragile sky strikers. Slow / fire-rate
-  // is the counter (Icey aura, frost towers).
-  stormSkimmer: {
-    id: "stormSkimmer",
-    name: "Storm Skimmer",
+  // Coiled Expanse (Mordekai Drakon) — very fast, fragile serpent racers. Slow
+  // / fire-rate is the counter (Icey aura, frost towers).
+  serpentRacer: {
+    id: "serpentRacer",
+    name: "Serpent Racer",
     baseHp: 26,
     speed: 70,
     armor: 0,
@@ -121,11 +122,11 @@ export const ENEMY_DEFS: Record<EnemyId, EnemyDef> = {
     isBoss: false,
     reward: { gold: 6, powder: 1 },
     color: "#7ad7ff",
-    faction: "stormcallers",
+    faction: "drakon",
   },
-  stormHerald: {
-    id: "stormHerald",
-    name: "Stormcaller Herald",
+  drakonHerald: {
+    id: "drakonHerald",
+    name: "Drakon Herald",
     baseHp: 430,
     speed: 56,
     armor: 3,
@@ -134,14 +135,14 @@ export const ENEMY_DEFS: Record<EnemyId, EnemyDef> = {
     isBoss: true,
     reward: { gold: 135, salvage: 26, powder: 18 },
     color: "#4fb8ff",
-    faction: "stormcallers",
+    faction: "drakon",
   },
 
-  // Drowned Court — self-heal & heal-aura. Burst damage / burn DoT is the
-  // counter (out-damage the regen).
-  drownedMender: {
-    id: "drownedMender",
-    name: "Drowned Mender",
+  // Black Spiral (Nimue Tideborn) — self-heal & heal-aura abyssal spawn. Burst
+  // damage / burn DoT is the counter (out-damage the regen).
+  abyssMender: {
+    id: "abyssMender",
+    name: "Abyssal Mender",
     baseHp: 110,
     speed: 22,
     armor: 2,
@@ -150,14 +151,14 @@ export const ENEMY_DEFS: Record<EnemyId, EnemyDef> = {
     isBoss: false,
     reward: { gold: 13, salvage: 2 },
     color: "#3fae9a",
-    faction: "drowned",
+    faction: "tideborn",
     regenPerSec: 6,
     healAuraPerSec: 5,
     healRadius: 90,
   },
-  drownedLeviathan: {
-    id: "drownedLeviathan",
-    name: "Drowned Leviathan",
+  tidebornKraken: {
+    id: "tidebornKraken",
+    name: "Tideborn Kraken",
     baseHp: 560,
     speed: 20,
     armor: 5,
@@ -166,14 +167,15 @@ export const ENEMY_DEFS: Record<EnemyId, EnemyDef> = {
     isBoss: true,
     reward: { gold: 140, salvage: 34, powder: 15 },
     color: "#2c8c7e",
-    faction: "drowned",
+    faction: "tideborn",
     regenPerSec: 18,
   },
 
-  // Goldhand Syndicate — bulky but reward-rich. No hard gimmick; greed bait.
-  goldhandFactor: {
-    id: "goldhandFactor",
-    name: "Goldhand Factor",
+  // Goldwake Consortium (Merchant King) — bulky but reward-rich. No hard
+  // gimmick; greed bait.
+  goldwakeFactor: {
+    id: "goldwakeFactor",
+    name: "Goldwake Factor",
     baseHp: 95,
     speed: 26,
     armor: 3,
@@ -182,11 +184,11 @@ export const ENEMY_DEFS: Record<EnemyId, EnemyDef> = {
     isBoss: false,
     reward: { gold: 26, salvage: 3, powder: 2 },
     color: "#e8c14a",
-    faction: "goldhand",
+    faction: "goldwake",
   },
-  goldhandKingpin: {
-    id: "goldhandKingpin",
-    name: "Goldhand Kingpin",
+  goldwakeKingpin: {
+    id: "goldwakeKingpin",
+    name: "Goldwake Kingpin",
     baseHp: 480,
     speed: 22,
     armor: 7,
@@ -195,7 +197,7 @@ export const ENEMY_DEFS: Record<EnemyId, EnemyDef> = {
     isBoss: true,
     reward: { gold: 260, salvage: 48, powder: 24 },
     color: "#ffd24a",
-    faction: "goldhand",
+    faction: "goldwake",
   },
 };
 

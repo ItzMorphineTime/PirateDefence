@@ -41,6 +41,14 @@ export const ABILITY_DEFS: Record<AbilityId, AbilityDef> = {
     cooldown: 16,
     targeted: true,
   },
+  ghostFrigate: {
+    id: "ghostFrigate",
+    name: "Jasper's Ghost Frigate",
+    desc: "Call Jasper Barrow's spectral war frigate to defend the island for 20s. Only when the island is below half health.",
+    cost: { mana: 100 },
+    cooldown: 45,
+    targeted: false,
+  },
 };
 
 export const ABILITY_LIST: AbilityId[] = [
@@ -49,6 +57,7 @@ export const ABILITY_LIST: AbilityId[] = [
   "broadside",
   "repairs",
   "crownShard",
+  "ghostFrigate",
 ];
 
 // Tunable ability effect values.
@@ -59,4 +68,8 @@ export const ABILITY_TUNING = {
   rallyAttackSpeedMult: 1.6,
   broadsideDamageMult: 3,
   repairsAmount: 35,
+  /** Ghost War Frigate summon lifetime (seconds). */
+  ghostFrigateLifeSec: 20,
+  /** Island HP fraction below which the Ghost Frigate can be summoned. */
+  ghostFrigateHpThreshold: 0.5,
 };

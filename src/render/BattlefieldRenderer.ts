@@ -55,16 +55,16 @@ interface VesselStyle {
 const ENEMY_STYLES: Record<string, VesselStyle> = {
   // Neutral starter raiders: plain little skiffs.
   neutral: { bow: 1.5, beam: 0.85, sails: 1, sailH: 1.1, sailTint: "#f0e2c8", accent: "none", roll: 1 },
-  // Crimson Fleet: lean, blood-sailed swarm cutters.
-  crimson: { bow: 1.7, beam: 0.72, sails: 1, sailH: 1.25, sailTint: "#ff8898", accent: "none", roll: 1.3 },
-  // Ironhull Armada: stubby, wide, armored rams; no sails.
-  ironhull: { bow: 1.25, beam: 1.1, sails: 0, sailH: 0, sailTint: "#aeb8c4", accent: "ram", roll: 0.4 },
-  // Stormcaller Covenant: sleek, finned racers.
-  stormcallers: { bow: 1.9, beam: 0.62, sails: 1, sailH: 1.35, sailTint: "#cdeeff", accent: "fin", roll: 1.6 },
-  // Drowned Court: bulky barges with a ghoul lantern.
-  drowned: { bow: 1.4, beam: 1.0, sails: 1, sailH: 0.95, sailTint: "#7fd8c8", accent: "lantern", roll: 0.7 },
-  // Goldhand Syndicate: fat treasure galleons, twin sails, gilt deck.
-  goldhand: { bow: 1.45, beam: 1.0, sails: 2, sailH: 1.15, sailTint: "#ffe9a0", accent: "coin", roll: 0.6 },
+  // Ashen Reach (Flameheart): lean, ash-sailed swarm cutters.
+  flameheart: { bow: 1.7, beam: 0.72, sails: 1, sailH: 1.25, sailTint: "#ff8898", accent: "none", roll: 1.3 },
+  // Drowned Crown (Thalassa): stubby, wide, armored leviathan rams; no sails.
+  thalassa: { bow: 1.25, beam: 1.1, sails: 0, sailH: 0, sailTint: "#aeb8c4", accent: "ram", roll: 0.4 },
+  // Coiled Expanse (Drakon): sleek, finned serpent racers.
+  drakon: { bow: 1.9, beam: 0.62, sails: 1, sailH: 1.35, sailTint: "#cdeeff", accent: "fin", roll: 1.6 },
+  // Black Spiral (Tideborn): bulky abyssal barges with a ghoul lantern.
+  tideborn: { bow: 1.4, beam: 1.0, sails: 1, sailH: 0.95, sailTint: "#7fd8c8", accent: "lantern", roll: 0.7 },
+  // Goldwake Consortium (Merchant King): fat treasure galleons, twin sails, gilt deck.
+  goldwake: { bow: 1.45, beam: 1.0, sails: 2, sailH: 1.15, sailTint: "#ffe9a0", accent: "coin", roll: 0.6 },
 };
 
 /** Friendly ships share the hull renderer with a clean, two-sail rig. */

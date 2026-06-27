@@ -736,6 +736,7 @@ export class GameEngine {
         broadside: { ...this.abilities.states.broadside },
         repairs: { ...this.abilities.states.repairs },
         crownShard: { ...this.abilities.states.crownShard },
+        ghostFrigate: { ...this.abilities.states.ghostFrigate },
       },
       dragon: {
         ...this.dragons.state,

@@ -17,6 +17,23 @@ export class ShipManager {
     return ship;
   }
 
+  /**
+   * Summon a temporary ship (e.g. Jasper's Ghost War Frigate) that fights for
+   * `lifeSec` seconds and then vanishes. Summons are NOT counted in
+   * `shipsOwned` — they're transient and never part of the recruited fleet.
+   */
+  addTemporary(world: World, defId: ShipId, lifeSec: number): Ship {
+    const ship: Ship = {
+      uid: nextUid(),
+      defId,
+      angle: Math.random() * Math.PI * 2,
+      cooldown: 0,
+      expiresAt: world.time + lifeSec,
+    };
+    world.ships.push(ship);
+    return ship;
+  }
+
   pos(ship: Ship): Vec2 {
     const def = SHIP_DEFS[ship.defId];
     return pointOnCircle(CENTER, ORBIT_RADII[def.ring], ship.angle);
@@ -32,6 +49,13 @@ export class ShipManager {
     dt: number,
     fireProjectile: (ship: Ship, from: Vec2, target: Enemy) => void
   ): void {
+    // Expire summoned ships (Ghost War Frigate) whose lifetime has elapsed.
+    if (world.ships.some((s) => s.expiresAt != null && world.time >= s.expiresAt)) {
+      world.ships = world.ships.filter(
+        (s) => s.expiresAt == null || world.time < s.expiresAt
+      );
+    }
+
     const attackMult = world.time < world.rallyUntil ? world.rallyMult : 1;
     const orbitMult = world.bonuses.shipOrbitMult * (world.time < world.rallyUntil ? 1.1 : 1);
     const reloadMult = world.bonuses.shipReloadMult * attackMult;

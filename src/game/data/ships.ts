@@ -98,7 +98,29 @@ export const SHIP_DEFS: Record<ShipId, ShipDef> = {
     bossMultiplier: 1.4,
     volley: 3,
   },
+
+  // --- Summon-only: Jasper Barrow's spectral aid (Phase 5 ally ability) ---
+  ghostWarFrigate: {
+    id: "ghostWarFrigate",
+    name: "Jasper's Ghost War Frigate",
+    desc: "Spectral capital ship summoned by Jasper Barrow. Fast, powerful, and shrugs off armor — but fades after a short time.",
+    buildCost: {}, // never bought; conjured by the Ghost Frigate ability
+    damage: 40,
+    fireInterval: 0.7,
+    range: 220,
+    ring: "outer",
+    orbitSpeed: 0.7,
+    color: "#b9a8ff",
+    ignoreArmor: true,
+    bossMultiplier: 1.5,
+    volley: 2,
+    summonOnly: true,
+  },
 };
 
-/** Fleet menu derives from SHIP_DEFS so new defs auto-appear in the UI. */
-export const BUILDABLE_SHIPS: ShipId[] = Object.keys(SHIP_DEFS) as ShipId[];
+/** Fleet menu derives from SHIP_DEFS so new defs auto-appear in the UI.
+ *  Summon-only ships (e.g. Jasper's Ghost War Frigate) are excluded — they are
+ *  conjured by abilities, never recruited. */
+export const BUILDABLE_SHIPS: ShipId[] = (
+  Object.keys(SHIP_DEFS) as ShipId[]
+).filter((id) => !SHIP_DEFS[id].summonOnly);

@@ -16,9 +16,9 @@ This repository contains the **MVP prototype** — a fully playable vertical sli
 - **Per-tower upgrades & selling** — click any placed tower to open its detail panel and level its **Damage / Range / Fire Rate** independently (escalating Gold + Salvage), or **sell it for 50%** of everything you've invested to free the slot and reclaim resources.
 - **Orbiting Ships** — Cutter, Gunboat, Repair Sloop, plus the Brigantine, Harpoon Schooner, Ghost Frigate, and the outer-ring Dragonwake Man-o'-War — all auto-firing as they circle.
 - **4 Resources** — Gold, Salvage, Powder, and regenerating Mana.
-- **4 Active Abilities** — Cannon Barrage (click-to-target), Rally the Crew, Full Broadside, and Emergency Repairs, each with resource costs and cooldowns.
-- **The Five Pirate King factions** — the wave bands rotate through **Crimson Fleet** (swarm), **Ironhull Armada** (armored), **Stormcaller Covenant** (fast), **Drowned Court** (self-healing menders), and **Goldhand Syndicate** (reward-rich), each with a signature enemy, a unique **boss**, and a visible faction indicator + counter hint in the UI.
-- **Counter-upgrades** — **Armor-Piercing Munitions** shred Ironhull plate and **Tidal Nets** slow Stormcaller raiders, applied as global tower-hit effects.
+- **Active Abilities** — Cannon Barrage (click-to-target), Rally the Crew, Full Broadside, Emergency Repairs, the forbidden Crown Shard, and **Jasper's Ghost Frigate** (a last-ditch ally summon, only when the island drops below half health), each with resource costs and cooldowns.
+- **The Five Pirate King factions** — the wave bands rotate through the lore Kings: **Ashen Reach / Ebon Flameheart** (fire swarm), **Drowned Crown / Adara Thalassa** (armored leviathans), **Coiled Expanse / Mordekai Drakon** (fast serpent racers), **Black Spiral / Nimue Tideborn** (self-healing abyssal menders), and the **Goldwake Consortium / Merchant King** (reward-rich bounty galleons), each with a signature enemy, a unique **boss**, and a visible faction indicator + counter hint in the UI.
+- **Counter-upgrades** — **Armor-Piercing Munitions** shred Thalassa's leviathan plate and **Tidal Nets** slow Drakon's serpent racers, applied as global tower-hit effects.
 - **Dragons** — four hatchable dragons (**Blaze / Icey / Speedy / Elder**) bought by **spending Dragon Trust** (no real-time timers), each granting a distinct passive aura, with Blaze also unlocking the **Blaze Breath** active ability.
 - **Enemies** — neutral raiders (Pirate Raider, Landing Skiff, Armored Brute, Egg-Runner Captain) plus **10 faction enemies** with behaviors like self-regen and ally heal-auras.
 - **Endless scaling waves** — health, count, and rewards grow each wave; boss/faction banners, speed controls (1× / 3× / 6×), auto-advance, **Auto-Retry** (restart your current/highest wave to farm gold), **Next/Previous** wave stepping, and a **target-wave** stop input.
@@ -34,13 +34,70 @@ This repository contains the **MVP prototype** — a fully playable vertical sli
 2. **Upgrade or sell individual towers.** Click any placed tower to open its detail panel — level its **Damage / Range / Fire Rate** for Gold + Salvage, or **Sell Tower** to reclaim **50%** of everything you've spent on it and free the slot.
 3. **Recruit ships.** In the **Fleet** tab, buy ships that orbit and defend the waters automatically.
 4. **Upgrade everything globally.** Spend Gold, Salvage, and Powder on damage, range, fire rate, mana, economy, and **counter-upgrades** (Armor-Piercing Munitions, Tidal Nets).
-5. **Cast abilities.** Use mana-powered abilities at critical moments — bombard a lane, rally your defenders, or repair the island.
+5. **Cast abilities.** Use mana-powered abilities at critical moments — bombard a lane, rally your defenders, repair the island, or, when the island falls **below half health**, call **Jasper Barrow's Ghost War Frigate** to fight at your side for 20 seconds.
 6. **Read the enemy.** Each wave band belongs to one of the **Five Pirate Kings** (shown in the top bar and wave banner with a counter hint). Adapt your towers and counter-upgrades to the active fleet.
 7. **Control the tide.** Use speed (1× / 3× / 6×), auto-advance, **Auto-Retry** to farm your highest wave, **◀/▶** to step waves between rounds, or set a **target wave** to stop at.
 8. **Survive & scale.** Waves grow endlessly. A faction boss arrives every **25 waves**.
 9. **Rescue & hatch dragons.** Around **wave 5**, an egg appears. Claim it to begin the sanctuary, earn **Dragon Trust** from bosses and wave clears, and **spend Trust** in the **Dragons** tab to hatch Blaze, Icey, Speedy, and Elder for permanent auras.
 
 > **Goal:** Beneath all the cannons, gold, and fire, the true objective remains — *protect the last dragons before the world drowns again.*
+
+---
+
+## ☠️ The Five Pirate Kings
+
+The Pirate Kings of the Dragonwake (see `LORE.md`) raid the sanctuary. Four of the five canonical Kings **hunt dragons** and appear as enemy factions; the fifth is the **Goldwake Consortium**, a greedy merchant-pirate fleet that profits off the dragon-egg bounty economy. The one King who *protects* dragons — **Jasper Barrow** — is not an enemy at all: he answers the player's call as the summonable **Ghost War Frigate** ability (see Abilities).
+
+The active King rotates by wave band — each block of `WAVE.bossEvery` (default **25**) waves is themed by one King, cycling **Flameheart → Thalassa → Drakon → Tideborn → Goldwake**. The active King biases the normal spawn pool toward its signature enemy and supplies that band's boss. The top bar and wave banner show the current King, its color, and a counter hint.
+
+| King (faction) | Theme | Signature enemy | Boss | How to counter |
+| -------------- | ----- | --------------- | ---- | -------------- |
+| **Ashen Reach** — *Ebon Flameheart, the Dragon Marauder* | Fire **swarm** — countless fragile ash-raiders flood the shore | Ashfire Swarmer (12 HP, very fast, no armor) | Flameheart Reaver Lord | Splash & mortar fire shred the swarm |
+| **Drowned Crown** — *Adara Thalassa, Queen of Leviathans* | Slow, plated **juggernauts** that shrug off arrows | Tidal Bulwark (70 HP, **10 armor**, very slow) | Thalassa Leviathan (**16 armor**) | Armor-Piercing Munitions + Storm Spire's armor-shred cut their plate |
+| **Coiled Expanse** — *Mordekai Drakon, the Sea Serpent King* | Fragile **serpent racers** that blitz the island | Serpent Racer (26 HP, **speed 70**) | Drakon Herald | Tidal Nets + Frost Obelisk slow and lock them down |
+| **Black Spiral** — *Nimue Tideborn, the Kraken Caller* | Abyssal **menders** that knit their rotting kin back together | Abyssal Mender (110 HP, **regen 6/s + heal-aura 5/s**) | Tideborn Kraken (**regen 18/s**) | Burn (Veilflame) and burst damage out-pace their regen |
+| **Goldwake Consortium** — *the Merchant King* | Bloated **bounty galleons** — kill them for a fat purse | Goldwake Factor (95 HP, **26 gold** reward) | Goldwake Kingpin (**260 gold**) | No gimmick — bring raw DPS and reap the bounty |
+
+Neutral raiders also appear in every band: **Pirate Raider**, **Landing Skiff**, **Armored Brute**, and the **Egg-Runner Captain** (the first boss-type, tied to the dragon-egg event).
+
+---
+
+## 🏰 Towers
+
+Towers are placed on the island's two concentric slot rings. Click a built tower to level its **Damage / Range / Fire Rate** independently, or sell it for **50%** of everything invested. Magic towers cost **Powder** and apply status effects; support towers (Watchtower, Ember Shrine) don't attack but buff neighbors.
+
+| Tower | Family | Cost | Role |
+| ----- | ------ | ---- | ---- |
+| **Archer Nest** | Land | 50 g | Fast cheap single-target arrows; anti-swarm starter |
+| **Cannon Battery** | Sea | 110 g · 20 s | Slow **splash** shells; strong vs groups |
+| **Ballista** | Sea | 160 g · 35 s | Heavy single bolt with **2.5× boss damage** |
+| **Watchtower** | Land | 90 g | No attack — **+range aura** to nearby towers |
+| **Crossbow Turret** | Land | 130 g · 15 s | Bolts **pierce 3** enemies in a line |
+| **Mortar Pit** | Sea | 180 g · 40 s · 10 p | Huge range (320) splash; **dead zone up close** (min range 140) |
+| **Harpoon Rig** | Sea | 150 g · 30 s | Heavy bolt that **slows** its target |
+| **Veilflame Spire** | Shadow | 170 g · 30 p | Spectral fire — applies **burn** DoT |
+| **Frost Obelisk** | Sky | 190 g · 35 p | Chilling shards that **slow** + small splash |
+| **Storm Spire** | Sky | 210 g · 40 p | Crackling bolts that **shred armor** |
+| **Tide Engine** | Sea | 200 g · 30 p | Wide-**splash** water pulses |
+| **Ember Shrine** | Shadow | 160 g · 25 p | No attack — **+25% damage aura** to nearby towers |
+
+_(g = Gold, s = Salvage, p = Powder.)_
+
+---
+
+## ⛵ Fleet (Ships)
+
+Ships are bought from the **Fleet** tab and auto-orbit the island on inner / middle / outer rings, firing as they circle and rotating to face their direction of travel.
+
+| Ship | Ring | Cost | Role |
+| ---- | ---- | ---- | ---- |
+| **Cutter** | Inner | 80 g · 25 s | Fast orbit, low damage; quick interception |
+| **Gunboat** | Middle | 140 g · 50 s | Reliable broadsides; the fleet backbone |
+| **Repair Sloop** | Inner | 100 g · 60 s | Minimal damage, **slowly repairs the island** |
+| **Brigantine** | Middle | 220 g · 80 s | **Splash** broadsides vs clustered raiders |
+| **Harpoon Schooner** | Inner | 200 g · 70 s | Fast skirmisher whose hooks **slow** the target |
+| **Ghost Frigate** | Middle | 300 g · 90 s · 30 p | Spectral shots that **ignore armor** |
+| **Dragonwake Man-o'-War** | Outer | 480 g · 160 s · 60 p | Capital ship — **volley of 3**, +40% boss damage |
 
 ---
 

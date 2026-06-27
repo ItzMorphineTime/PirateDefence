@@ -21,6 +21,16 @@ export class AbilityManager {
     return this.states[id].cooldown <= 0;
   }
 
+  /**
+   * Jasper's Ghost Frigate is gated on the island being below half health — a
+   * desperate-times panic button. Other abilities are always available. Shared
+   * by cast() (server-side guard) and the engine/UI (button enable state).
+   */
+  hpGateMet(world: World, id: AbilityId): boolean {
+    if (id !== "ghostFrigate") return true;
+    return world.islandHp / world.maxIslandHp < ABILITY_TUNING.ghostFrigateHpThreshold;
+  }
+
   update(dt: number): void {
     for (const id of ABILITY_LIST) {
       const s = this.states[id];
@@ -49,6 +59,7 @@ export class AbilityManager {
     const def = ABILITY_DEFS[id];
     if (!this.ready(id)) return false;
     if (def.targeted && !ctx.target) return false;
+    if (!this.hpGateMet(ctx.world, id)) return false;
     if (!ctx.res.canAfford(def.cost)) return false;
     ctx.res.spend(def.cost);
     this.states[id].cooldown = def.cooldown;
@@ -107,6 +118,21 @@ export class AbilityManager {
         break;
       case "crownShard":
         this.castCrownShard(ctx);
+        break;
+      case "ghostFrigate":
+        ctx.ships.addTemporary(
+          world,
+          "ghostWarFrigate",
+          ABILITY_TUNING.ghostFrigateLifeSec
+        );
+        // Spectral arrival flourish.
+        world.effects.push({
+          pos: { x: CENTER.x, y: CENTER.y },
+          radius: 140,
+          life: 0.7,
+          maxLife: 0.7,
+          color: "#b9a8ff",
+        });
         break;
     }
     return true;

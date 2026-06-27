@@ -14,11 +14,11 @@ export type Family = "land" | "sea" | "sky" | "shadow";
 // ---------------------------------------------------------------------------
 /** The five Pirate King factions. The active faction rotates by wave band. */
 export type FactionId =
-  | "crimson"
-  | "ironhull"
-  | "stormcallers"
-  | "drowned"
-  | "goldhand";
+  | "flameheart"
+  | "thalassa"
+  | "drakon"
+  | "tideborn"
+  | "goldwake";
 
 export interface FactionDef {
   id: FactionId;
@@ -140,7 +140,8 @@ export type ShipId =
   | "brigantine"
   | "harpoonSchooner"
   | "ghostFrigate"
-  | "manOWar";
+  | "manOWar"
+  | "ghostWarFrigate";
 
 export type OrbitRing = "inner" | "middle" | "outer";
 
@@ -169,6 +170,9 @@ export interface ShipDef {
   bossMultiplier?: number;
   /** Fires this many shots per volley at distinct nearby targets (Man-o'-War). */
   volley?: number;
+  /** Summon-only: not recruitable from the fleet menu (e.g. Jasper's spectral
+   *  Ghost War Frigate, conjured by an ability for a limited time). */
+  summonOnly?: boolean;
 }
 
 export interface Ship {
@@ -176,6 +180,9 @@ export interface Ship {
   defId: ShipId;
   angle: number; // current orbit angle (radians)
   cooldown: number;
+  /** Simulation timestamp (world.time) at which a summoned ship vanishes.
+   *  Undefined for permanent recruited ships. */
+  expiresAt?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -186,17 +193,17 @@ export type EnemyId =
   | "skiff"
   | "brute"
   | "captain"
-  // --- Phase 5 faction enemies ---
-  | "crimsonSwarmer"
-  | "crimsonReaver"
-  | "ironhullBulwark"
-  | "ironhullDreadnought"
-  | "stormSkimmer"
-  | "stormHerald"
-  | "drownedMender"
-  | "drownedLeviathan"
-  | "goldhandFactor"
-  | "goldhandKingpin";
+  // --- Phase 5 faction enemies (the Five Pirate Kings) ---
+  | "ashSwarmer"
+  | "flameheartReaver"
+  | "tidalBulwark"
+  | "thalassaLeviathan"
+  | "serpentRacer"
+  | "drakonHerald"
+  | "abyssMender"
+  | "tidebornKraken"
+  | "goldwakeFactor"
+  | "goldwakeKingpin";
 
 export interface EnemyDef {
   id: EnemyId;
@@ -284,7 +291,8 @@ export type AbilityId =
   | "rally"
   | "broadside"
   | "repairs"
-  | "crownShard";
+  | "crownShard"
+  | "ghostFrigate";
 
 export interface AbilityDef {
   id: AbilityId;
