@@ -1,12 +1,22 @@
 import type { GameEngine } from "../game/GameEngine";
 import type {
   GameSnapshot,
+  ResourceId,
+  ResourceMap,
   SelectedTowerUpgrade,
   TowerUpgradeKind,
 } from "../game/types";
 import { fmt } from "../game/math";
-import { CostLabel } from "./costUtil";
+import { CostLabel, RESOURCE_META } from "./costUtil";
 import { useClampedPosition } from "./useClampedPosition";
+
+/** Compact "120 G · 24 S" summary of a refund map (always shown as positive). */
+function refundSummary(map: Partial<ResourceMap>): string {
+  return (Object.keys(map) as ResourceId[])
+    .filter((id) => (map[id] ?? 0) > 0)
+    .map((id) => `${fmt(map[id] ?? 0)} ${RESOURCE_META[id].name.slice(0, 1)}`)
+    .join(" · ");
+}
 
 const KIND_META: Record<TowerUpgradeKind, { label: string; desc: string }> = {
   dmg: { label: "Damage", desc: "+25% damage" },
@@ -104,6 +114,18 @@ export function TowerDetailPanel({
           {row("range", sel.range)}
           {row("rate", sel.rate)}
         </div>
+
+        <button
+          className="tower-sell-btn"
+          title="Sell this tower for 50% of everything spent on it"
+          onClick={() => {
+            engine.sellTower(sel.uid);
+            onClose();
+          }}
+        >
+          <span className="tsell-label">Sell Tower</span>
+          <span className="tsell-refund">+{refundSummary(sel.sellValue)}</span>
+        </button>
       </div>
     </div>
   );

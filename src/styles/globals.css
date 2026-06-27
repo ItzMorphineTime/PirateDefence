@@ -403,6 +403,27 @@ button:disabled {
 .tower-upgrade-btn .tu-cost .ok { color: var(--accent); }
 .tower-upgrade-btn .tu-cost .no { color: #e05858; }
 
+.tower-sell-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 7px 10px;
+  font-size: 12px;
+  font-weight: bold;
+  color: #ffb3b3;
+  background: rgba(224, 88, 88, 0.14);
+  border: 1px solid rgba(224, 88, 88, 0.4);
+  border-radius: 6px;
+  cursor: pointer;
+}
+.tower-sell-btn:hover {
+  background: rgba(224, 88, 88, 0.24);
+  border-color: rgba(224, 88, 88, 0.65);
+}
+.tower-sell-btn .tsell-refund { font-size: 11px; color: var(--accent); }
+
 /* ---------- Build menu (canvas overlay) ---------- */
 .build-menu {
   position: absolute;

@@ -699,6 +699,7 @@ export class GameEngine {
       dmg: kind("dmg"),
       range: kind("range"),
       rate: kind("rate"),
+      sellValue: this.towers.sellValue(tower),
     };
   }
 
