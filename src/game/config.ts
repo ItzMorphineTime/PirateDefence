@@ -150,6 +150,28 @@ export const CROWN_SHARD_TUNING = {
   goldWindfall: 120,
 };
 
+// --- Prestige ("Sanctuary Evacuation") — Phase 7 ---
+// Evacuating the sanctuary wipes the current run but banks **Tideglass**, a
+// persistent meta-currency spent on permanent meta-upgrades that carry into
+// every future run. Tideglass is milestone-gated: only runs that push past
+// `waveGate` earn anything, and the yield grows with the *square root* of the
+// distance past the gate (diminishing returns), plus a flat bonus per boss
+// felled. Voluntary evacuation pays full value; being defeated (game over)
+// pays only `defeatFraction` of it.
+export const PRESTIGE = {
+  /** Separate localStorage key so meta-progress survives the run wipe. */
+  saveKey: "tidehold_prestige_v1",
+  saveVersion: 1,
+  /** No Tideglass is earned until the highest wave reached exceeds this. */
+  waveGate: 10,
+  /** Yield multiplier on sqrt(wavesPastGate). */
+  perWaveRootScale: 1.5,
+  /** Flat Tideglass per boss killed this run. */
+  perBossKill: 1,
+  /** Fraction of the reward granted when evacuation is forced by defeat. */
+  defeatFraction: 0.1,
+};
+
 // --- Speed multipliers ---
 export const SPEED_OPTIONS = [1, 3, 6];
 

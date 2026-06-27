@@ -1,9 +1,15 @@
 import { useState } from "react";
 import type { GameEngine } from "../game/GameEngine";
-import type { GameSnapshot, ShipId, UpgradeId } from "../game/types";
+import type {
+  GameSnapshot,
+  MetaUpgradeId,
+  ShipId,
+  UpgradeId,
+} from "../game/types";
 import { UPGRADE_DEFS, UPGRADE_GROUPS } from "../game/data/upgrades";
 import { BUILDABLE_TOWERS, TOWER_DEFS } from "../game/data/towers";
 import { BUILDABLE_SHIPS, SHIP_DEFS } from "../game/data/ships";
+import { META_UPGRADE_DEFS, META_UPGRADE_LIST } from "../game/data/metaUpgrades";
 import { CostLabel } from "./costUtil";
 import { fmt } from "../game/math";
 import {
@@ -14,13 +20,14 @@ import {
   DRAGON_ABILITY_OWNER,
 } from "../game/data/dragons";
 
-type Tab = "towers" | "fleet" | "treasury" | "dragons";
+type Tab = "towers" | "fleet" | "treasury" | "dragons" | "sanctuary";
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "towers", label: "Towers" },
   { id: "fleet", label: "Fleet" },
   { id: "treasury", label: "Magic" },
   { id: "dragons", label: "Dragons" },
+  { id: "sanctuary", label: "Sanctuary" },
 ];
 
 export function UpgradePanel({
@@ -61,7 +68,92 @@ export function UpgradePanel({
         {tab === "fleet" && <FleetTab engine={engine} snap={snap} />}
         {tab === "treasury" && <UpgradeGroup engine={engine} snap={snap} groupIndex={2} />}
         {tab === "dragons" && <DragonsTab engine={engine} snap={snap} />}
+        {tab === "sanctuary" && <SanctuaryTab engine={engine} snap={snap} />}
       </div>
+    </>
+  );
+}
+
+function SanctuaryTab({
+  engine,
+  snap,
+}: {
+  engine: GameEngine;
+  snap: GameSnapshot;
+}) {
+  const p = snap.prestige;
+  const pending = snap.pendingTideglass;
+  return (
+    <>
+      <div className="section-title">Sanctuary Evacuation</div>
+      <div className="buy-row" style={{ cursor: "default" }}>
+        <span className="info">
+          <span className="name" style={{ color: "var(--tideglass, #7fd4e0)" }}>
+            Tideglass: {fmt(p.tideglass)}
+          </span>
+          <span className="desc">
+            Permanent meta-currency. Evacuate the sanctuary to bank it from a run,
+            then spend it on lasting upgrades that carry into every future run.
+            Best wave: {p.bestWave} · Evacuations: {p.evacuations}
+          </span>
+        </span>
+      </div>
+
+      <button
+        className="buy-row"
+        disabled={pending <= 0}
+        onClick={() => {
+          if (
+            window.confirm(
+              `Evacuate the sanctuary? This ends the current run and banks ${pending} Tideglass. Meta-upgrades are kept.`
+            )
+          ) {
+            engine.evacuate(false);
+          }
+        }}
+      >
+        <span className="info">
+          <span className="name">Evacuate Now</span>
+          <span className="desc">
+            {pending > 0
+              ? `End this run and bank ${pending} Tideglass (full value).`
+              : `Reach past wave ${10} to earn Tideglass from an evacuation.`}
+          </span>
+        </span>
+        <span className="cost" style={{ color: "var(--tideglass, #7fd4e0)" }}>
+          +{pending}
+        </span>
+      </button>
+
+      <div className="section-title">Meta-Upgrades (permanent)</div>
+      {META_UPGRADE_LIST.map((id: MetaUpgradeId) => {
+        const def = META_UPGRADE_DEFS[id];
+        const lvl = p.meta[id];
+        const cost = engine.prestige.cost(id);
+        const maxed = engine.prestige.isMaxed(id);
+        const affordable = !maxed && p.tideglass >= cost;
+        return (
+          <button
+            key={id}
+            className="buy-row"
+            style={maxed ? { cursor: "default", opacity: 0.85 } : undefined}
+            disabled={!affordable}
+            onClick={() => engine.buyMetaUpgrade(id)}
+          >
+            <span className="info">
+              <span className="name">
+                {def.name} <span className="lvl">Lv {lvl}</span>
+              </span>
+              <span className="desc">
+                {def.desc} · {def.effectLabel(lvl)}
+              </span>
+            </span>
+            <span className="cost" style={{ color: "var(--tideglass, #7fd4e0)" }}>
+              {maxed ? "MAX" : `${cost} Tideglass`}
+            </span>
+          </button>
+        );
+      })}
     </>
   );
 }

@@ -9,6 +9,7 @@ import type {
   TowerId,
   TowerUpgradeKind,
   UpgradeId,
+  MetaUpgradeId,
   Vec2,
   ResourceMap,
   ShipDef,
@@ -27,6 +28,11 @@ import { ProjectileManager } from "./managers/ProjectileManager";
 import { AbilityManager } from "./managers/AbilityManager";
 import { DragonManager } from "./managers/DragonManager";
 import { CorruptionManager } from "./managers/CorruptionManager";
+import {
+  PrestigeManager,
+  loadPrestige,
+  savePrestige,
+} from "./managers/PrestigeManager";
 import { TOWER_DEFS } from "./data/towers";
 import { SHIP_DEFS } from "./data/ships";
 import { ABILITY_DEFS } from "./data/abilities";
@@ -61,6 +67,7 @@ export class GameEngine {
   abilities: AbilityManager;
   dragons: DragonManager;
   corruption: CorruptionManager;
+  prestige: PrestigeManager;
 
   speed = 1;
   autoAdvance = true;
@@ -103,20 +110,32 @@ export class GameEngine {
     this.abilities = new AbilityManager();
     this.dragons = new DragonManager(save?.dragon);
     this.corruption = new CorruptionManager(save?.corruption);
+    // Prestige persists under its own key, independent of the run save.
+    this.prestige = new PrestigeManager(loadPrestige());
+    const meta = this.prestige.modifiers();
 
-    const maxIslandHp = BASE_ISLAND_HP;
+    // Permanent prestige perks apply at run start. A *fresh* run (no save) also
+    // gets the starting-gold windfall and free head-start upgrade levels; these
+    // are one-shot grants already baked into a restored run's persisted state.
+    if (!save) {
+      this.applyHeadstart(meta.headstartDamageLevels);
+      if (meta.startGold > 0) this.res.add("gold", meta.startGold);
+    }
+
+    const maxIslandHp = BASE_ISLAND_HP + meta.islandHpFlat;
     this.world = {
       enemies: [],
       towers: [],
       ships: [],
       projectiles: [],
       effects: [],
-      islandHp: save?.islandHp ?? maxIslandHp,
+      islandHp: Math.min(save?.islandHp ?? maxIslandHp, maxIslandHp),
       maxIslandHp,
       bonuses: computeBonuses(
         this.up,
         this.dragons.state,
-        this.corruption.modifiers()
+        this.corruption.modifiers(),
+        meta
       ),
       rallyUntil: 0,
       rallyMult: 1,
@@ -130,6 +149,21 @@ export class GameEngine {
     if (save) this.applySave(save);
 
     this.snapshot = this.buildSnapshot();
+  }
+
+  /** Core damage upgrade lines that the "Veteran Crew" meta-perk pre-levels. */
+  private static readonly HEADSTART_UPGRADES: UpgradeId[] = [
+    "archerDmg",
+    "cannonDmg",
+    "shipDmg",
+  ];
+
+  /** Grant `levels` free levels to each core damage upgrade (fresh runs only). */
+  private applyHeadstart(levels: number): void {
+    if (levels <= 0) return;
+    for (const id of GameEngine.HEADSTART_UPGRADES) {
+      this.up.levels[id] += levels;
+    }
   }
 
   // ------------------------------------------------------------------ save
@@ -615,19 +649,49 @@ export class GameEngine {
     this.pushSnapshot();
   }
 
-  reset(): void {
+  /** Tideglass the current run would bank if evacuated voluntarily right now. */
+  pendingTideglass(): number {
+    return this.prestige.rewardFor(this.waves.wave, this.world.bossKills, false);
+  }
+
+  /**
+   * Sanctuary Evacuation: bank the run's Tideglass into persistent prestige,
+   * wipe the run save, and restart. A voluntary evacuation pays full value; a
+   * defeat (game over) pays only PRESTIGE.defeatFraction of it.
+   */
+  evacuate(defeated = false): void {
+    this.prestige.evacuate(this.waves.wave, this.world.bossKills, defeated);
+    savePrestige(this.prestige.state);
     saveGame(null);
     window.location.reload();
   }
 
+  /** Spend Tideglass on a permanent meta-upgrade. Persists immediately. */
+  buyMetaUpgrade(id: MetaUpgradeId): boolean {
+    const ok = this.prestige.buy(id);
+    if (ok) {
+      savePrestige(this.prestige.state);
+      this.pushSnapshot();
+    }
+    return ok;
+  }
+
+  /** Legacy hard reset (used by the game-over button): evacuate as a defeat. */
+  reset(): void {
+    this.evacuate(true);
+  }
+
   // ------------------------------------------------------------- internals
   private refreshDerived(): void {
+    const meta = this.prestige.modifiers();
     this.world.bonuses = computeBonuses(
       this.up,
       this.dragons.state,
-      this.corruption.modifiers()
+      this.corruption.modifiers(),
+      meta
     );
-    this.world.maxIslandHp = BASE_ISLAND_HP;
+    // Max island HP includes the permanent prestige fortitude bonus.
+    this.world.maxIslandHp = BASE_ISLAND_HP + meta.islandHpFlat;
     this.res.clampMana(this.world.bonuses.maxMana);
     // Bonuses changed → cached tower ranges may be stale.
     this.towers.recomputeRanges(this.world);
@@ -684,6 +748,13 @@ export class GameEngine {
       eventToast: this.eventToast,
       corruption: this.corruption.level,
       corruptionMax: CORRUPTION.max,
+      prestige: {
+        tideglass: this.prestige.state.tideglass,
+        bestWave: this.prestige.state.bestWave,
+        evacuations: this.prestige.state.evacuations,
+        meta: { ...this.prestige.state.meta },
+      },
+      pendingTideglass: this.pendingTideglass(),
     };
   }
 

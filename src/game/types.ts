@@ -343,6 +343,41 @@ export interface UpgradeDef {
 }
 
 // ---------------------------------------------------------------------------
+// Prestige ("Sanctuary Evacuation") — permanent meta-upgrades bought with the
+// Tideglass meta-currency, persisted separately so they survive a run reset.
+// ---------------------------------------------------------------------------
+export type MetaUpgradeId =
+  | "metaEconomy" // starting gold + permanent gold multiplier
+  | "metaDamage" // permanent global tower & ship damage multiplier
+  | "metaFortitude" // higher starting & max island HP
+  | "metaHeadstart"; // begin each run with global upgrade levels granted
+
+export interface MetaUpgradeDef {
+  id: MetaUpgradeId;
+  name: string;
+  desc: string;
+  /** Tideglass cost of the first level. */
+  baseCost: number;
+  /** Geometric cost multiplier per level already owned. */
+  costScaling: number;
+  maxLevel: number; // -1 = infinite
+  /** Human-readable effect string for the given level. */
+  effectLabel: (level: number) => string;
+}
+
+/** Persistent meta-progression saved under the prestige key. */
+export interface PrestigeState {
+  /** Banked Tideglass available to spend on meta-upgrades. */
+  tideglass: number;
+  /** Highest wave ever reached across all runs (for display/records). */
+  bestWave: number;
+  /** Total number of evacuations performed. */
+  evacuations: number;
+  /** Purchased meta-upgrade levels. */
+  meta: Record<MetaUpgradeId, number>;
+}
+
+// ---------------------------------------------------------------------------
 // Dragons
 // ---------------------------------------------------------------------------
 /** The four hatchable dragon types, each granting a distinct passive aura. */
@@ -476,4 +511,8 @@ export interface GameSnapshot {
   corruption: number;
   /** Maximum corruption (for the UI gauge). */
   corruptionMax: number;
+  /** Persistent prestige meta-progression (Tideglass + meta-upgrade levels). */
+  prestige: PrestigeState;
+  /** Tideglass that *would* be banked if the player evacuated right now. */
+  pendingTideglass: number;
 }

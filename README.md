@@ -135,7 +135,7 @@ src/
 
 ### Design principles
 - **Data-driven content.** Towers, ships, enemies, factions, abilities, dragons, and upgrades are plain definition objects — add new content without touching engine logic.
-- **Manager pattern.** Each system is isolated and ticked by the engine. `FactionManager` is in place, leaving clean seams for future `PrestigeManager` and `CorruptionManager`.
+- **Manager pattern.** Each system is isolated and ticked by the engine — `FactionManager`, `CorruptionManager`, and `PrestigeManager` (persistent meta-progression under a separate save key) all slot into the same shared-`World` seam.
 - **Rendering decoupled from state.** The canvas reads world state each frame and derives ship headings from movement; React only renders panels from a throttled snapshot.
 
 ---
@@ -173,7 +173,7 @@ The MVP is structured so these planned systems can be layered on:
 - [x] The **Five Pirate King** factions (rotating by wave band) with unique enemies, bosses, behaviors (regen / heal-auras), and counter-upgrades
 - [x] **Directional ship graphics** with per-faction vessel variations, facing the direction of travel
 - [x] **Corruption** system and forbidden **Crown Shard** power — a targeted AoE+gold ability that raises a decaying corruption meter, trading bigger damage & gold for a tougher, faster tide (with a violet sea tint + corruption chip)
-- [ ] **Prestige** ("Sanctuary Evacuation") with persistent meta-progression
+- [x] **Prestige** ("Sanctuary Evacuation") — evacuate at any time to bank **Tideglass** (a milestone-gated meta-currency; only 10% if you fall in defeat), then spend it on four permanent meta-upgrades (start gold + gold, global damage, island HP, free headstart levels) that carry into every future run
 - [ ] Player captains, additional resources, and automation upgrades
 
 ---

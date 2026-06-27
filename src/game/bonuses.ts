@@ -5,6 +5,7 @@
 import type { TowerId, UpgradeId, DragonState } from "./types";
 import type { UpgradeManager } from "./managers/UpgradeManager";
 import type { CorruptionModifiers } from "./managers/CorruptionManager";
+import type { MetaModifiers } from "./managers/PrestigeManager";
 import { UP, MAGIC_TOWER_IDS, COUNTER_STATUS } from "./data/upgrades";
 import { TOWER_DEFS } from "./data/towers";
 import { SHIP_DEFS } from "./data/ships";
@@ -40,7 +41,8 @@ export interface Bonuses {
 export function computeBonuses(
   up: UpgradeManager,
   dragon: DragonState,
-  corruption: CorruptionModifiers
+  corruption: CorruptionModifiers,
+  meta: MetaModifiers
 ): Bonuses {
   // --- Dragon auras (hatched dragons each contribute; Elder adds a slice of all).
   const has = (id: string): boolean => dragon.hatched.includes(id as never);
@@ -86,8 +88,8 @@ export function computeBonuses(
       let m = 1 + lvl(`${id}Dmg`) * mag(`${id}Dmg`);
       // Shared magic-damage upgrade applies on top for magic towers.
       if (isMagic(id)) m += lvl("magicDmg") * UP.magicDmg;
-      // Dragon auras × forbidden Crown Shard corruption boost.
-      return m * dragonDamageMult * corruption.damageMult;
+      // Dragon auras × Crown Shard corruption × permanent prestige damage.
+      return m * dragonDamageMult * corruption.damageMult * meta.damageMult;
     },
     towerRangeFlat: (id: TowerId) => {
       // Convention: each ranged tower has a `{id}Range` upgrade.
@@ -99,13 +101,18 @@ export function computeBonuses(
       (TOWER_DEFS.watchtower.rangeAura ?? 0) +
       up.level("watchtowerAura") * UP.watchtowerAura,
     shipDamageMult:
-      (1 + up.level("shipDmg") * UP.shipDmg) * corruption.damageMult,
+      (1 + up.level("shipDmg") * UP.shipDmg) *
+      corruption.damageMult *
+      meta.damageMult,
     shipRangeFlat: up.level("shipRange") * UP.shipRange,
     shipOrbitMult: 1 + up.level("shipOrbit") * UP.shipOrbit,
     shipReloadMult: 1 + up.level("shipReload") * UP.shipReload,
     maxMana: BASE_MAX_MANA + up.level("maxMana") * UP.maxMana,
     manaRegen: BASE_MANA_REGEN + up.level("manaRegen") * UP.manaRegen,
-    goldMult: (1 + up.level("goldGain") * UP.goldGain) * corruption.goldMult,
+    goldMult:
+      (1 + up.level("goldGain") * UP.goldGain) *
+      corruption.goldMult *
+      meta.goldMult,
   };
 }
 

@@ -35,7 +35,7 @@
 | Phase 4 — Dragon System | ✅ Done | 4 hatchable dragons (Blaze/Icey/Speedy/Elder), Trust-spend hatching, passive auras, Blaze Breath active ability, sanctuary roster UI, circling-dragon renderer |
 | Phase 5 — Pirate King Factions | ✅ Done | 5 factions rotating by wave band, 10 faction enemies (swarm/armored/fast/healer/reward), faction bosses, regen + heal-aura behaviors, 2 counter-upgrades (Armor-Piercing, Tidal Nets), faction banner/topbar indicator |
 | Phase 6 — Corruption & Crown Shard | ✅ Done | `CorruptionManager` (0–100 decaying meter), Crown Shard targeted ability (AoE + gold windfall, raises corruption), corruption modifiers (+dmg/+gold, +enemy HP/speed), violet sea tint + TopBar chip, v4 save migration |
-| Phase 7 — Prestige | ⬜ Not started | `PrestigeManager`, meta-progression |
+| Phase 7 — Prestige | ✅ Done | `PrestigeManager` + Tideglass meta-currency (milestone-gated `sqrt`, 10% on defeat), Sanctuary Evacuation flow (separate save key, run wipe), 4 permanent meta-upgrades (economy/damage/fortitude/headstart), Sanctuary UI tab |
 | Phase 8 — Captains, Resources, Automation | ⬜ Not started | Depth + idle systems |
 | Phase 9 — UX & Interaction Polish | ✅ Done | 2× island + dual slot ring, circular HP gauge, click-to-upgrade towers, scrolling sea, Auto-Retry (current wave) + Next/Prev + target-wave |
 
@@ -339,16 +339,29 @@ reloads (v4 save).
 
 **Depends on:** Phases 1–4 (enough depth to make resets meaningful).
 
-- [ ] **7.1 `PrestigeManager`.** Computes meta-currency from run performance
-  (waves cleared, bosses, trust). _Files:_ new manager, `GameEngine.ts`.
-- [ ] **7.2 Evacuation flow.** A reset that wipes the run but banks meta-currency
-  and keeps a meta-upgrade tree. Reuse `engine.reset()` plumbing, but preserve a
-  separate meta save key. _Files:_ `save.ts` (new key), `GameEngine.ts`.
-- [ ] **7.3 Meta-upgrade tree + UI.** New panel/tab for permanent upgrades that
-  feed `computeBonuses`. _Files:_ `bonuses.ts`, new UI panel.
+- [x] **7.1 `PrestigeManager`.** Computes **Tideglass** from run performance:
+  milestone-gated `floor(sqrt(wave - waveGate) * perWaveRootScale + bosses * perBossKill)`,
+  scaled to **10%** on defeat (`defeatFraction`). Tracks `bestWave`/`evacuations`
+  and the per-id meta-upgrade levels. Persists under its own key
+  (`tidehold_prestige_v1`) so it survives the run wipe. _Files:_
+  `managers/PrestigeManager.ts`, `data/metaUpgrades.ts`, `config.ts`, `types.ts`,
+  `GameEngine.ts`.
+- [x] **7.2 Evacuation flow.** `engine.evacuate(defeated)` banks the reward,
+  saves prestige to its separate key, clears the per-run save, and reloads a fresh
+  run. `engine.reset()` now routes through `evacuate(true)` (defeat → 10%). The
+  game-over button banks the partial reward automatically. _Files:_
+  `GameEngine.ts`, `PrestigeManager.ts`.
+- [x] **7.3 Meta-upgrade tree + UI.** Four permanent upgrades —
+  Tidewardens' Treasury (start gold + gold mult), Ancestral Armaments (damage
+  mult), Deepstone Foundations (island HP), Veteran Crew (free headstart damage
+  levels) — feed `computeBonuses` via `MetaModifiers`. Start-gold and headstart
+  apply on fresh runs only; damage/gold/HP apply every run. New **Sanctuary** tab
+  shows Tideglass, evacuate button, and the purchase list. _Files:_ `bonuses.ts`,
+  `ui/UpgradePanel.tsx`.
 
-**Acceptance:** evacuating grants meta-currency, applies a permanent bonus to the
-next run, and survives reload.
+**Acceptance:** ✅ evacuating banks Tideglass (10% on defeat), the meta-upgrades
+apply permanent bonuses at the start of every future run, and the prestige state
+survives a full reload via its separate save key.
 
 ### Phase 8 — Captains, Additional Resources, Automation
 
@@ -483,6 +496,26 @@ A task is `[x]` only when **all** hold:
 
 > Newest first. One entry per meaningful change. Format: `YYYY-MM-DD — area — summary`.
 
+- 2026-06-27 — engine/ui — Implemented **Phase 7 — Prestige ("Sanctuary
+  Evacuation")**. Added a new stateful `PrestigeManager` that owns a `PrestigeState`
+  (Tideglass currency, `bestWave`, `evacuations`, per-id meta levels) persisted
+  under a **separate** save key (`tidehold_prestige_v1`, via `loadPrestige`/
+  `savePrestige`) so meta-progress survives the per-run wipe. Reward is the
+  user-chosen **wave-only milestone**: `floor(sqrt(wave - waveGate) *
+  perWaveRootScale + bosses * perBossKill)`, scaled by `defeatFraction` (0.1) when
+  the run ends in defeat. `GameEngine.evacuate(defeated)` banks the reward, persists
+  prestige, clears the run save, and reloads a fresh run; `reset()` now routes
+  through `evacuate(true)` so the game-over button banks the 10% partial. Four
+  permanent meta-upgrades (`data/metaUpgrades.ts`) — Tidewardens' Treasury, Ancestral
+  Armaments, Deepstone Foundations, Veteran Crew — flow into `computeBonuses(up,
+  dragon, corruption, meta)` via a new `MetaModifiers` (damage/gold mults + island
+  HP every run; start gold + headstart damage levels on fresh runs only). New
+  **Sanctuary** tab in `UpgradePanel` shows Tideglass, an evacuate button, and the
+  meta-upgrade purchase list. Caught + fixed a latent bug where `refreshDerived()`
+  hardcoded `maxIslandHp = BASE_ISLAND_HP`, which would have erased the fortitude
+  bonus on every recompute. _Files:_ `managers/PrestigeManager.ts`,
+  `data/metaUpgrades.ts`, `config.ts` (`PRESTIGE`), `types.ts`, `bonuses.ts`,
+  `GameEngine.ts`, `ui/UpgradePanel.tsx`. `npm run build` passes.
 - 2026-06-27 — engine/ui — Implemented **Phase 6 — Corruption & Crown Shard**.
   Added a 0–100 corruption meter (`World.corruption`) owned by a new stateless
   `CorruptionManager` (raise on cast, slow `decayPerSec` decay, and a
