@@ -100,6 +100,7 @@ Ships are bought from the **Fleet** tab and auto-orbit the island on inner / mid
 | **Harpoon Schooner** | Inner | 200 g · 70 s | Fast skirmisher whose hooks **slow** the target |
 | **Ghost Frigate** | Middle | 300 g · 90 s · 30 p | Spectral shots that **ignore armor** |
 | **Dragonwake Man-o'-War** | Outer | 480 g · 160 s · 60 p | Capital ship — **volley of 3**, +40% boss damage |
+| **Jasper's Ghost War Frigate** | Outer | *summon only* | **Ability-summoned ally** — fast, armor-ignoring, +50% boss damage; fades after 20 s |
 
 ---
 
@@ -213,9 +214,10 @@ SPEED_OPTIONS           // available speed multipliers
 ```
 
 Factions rotate by wave band: `band = floor((wave-1) / WAVE.bossEvery) % 5`,
-cycling Crimson → Ironhull → Stormcallers → Drowned → Goldhand. Faction defs
+cycling Flameheart → Thalassa → Drakon → Tideborn → Goldwake. Faction defs
 (signature enemy, boss, color, counter hint) live in
-[`src/game/data/factions.ts`](src/game/data/factions.ts).
+[`src/game/data/factions.ts`](src/game/data/factions.ts), with the canonical
+Pirate King lore in [`LORE.md`](LORE.md).
 
 Per-tower / ship / enemy / upgrade values live in the corresponding files under [`src/game/data/`](src/game/data/).
 

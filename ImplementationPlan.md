@@ -33,7 +33,7 @@
 | Phase 2 — Towers & Magic Towers | ✅ Done | 3 standard + 5 magic towers, behavior flags, upgrades, renderer |
 | Phase 3 — Fleet Expansion | ✅ Done | 4 new ship classes, behavior flags, outer-ring capital, save compat |
 | Phase 4 — Dragon System | ✅ Done | 4 hatchable dragons (Blaze/Icey/Speedy/Elder), Trust-spend hatching, passive auras, Blaze Breath active ability, sanctuary roster UI, circling-dragon renderer |
-| Phase 5 — Pirate King Factions | ✅ Done | 5 factions rotating by wave band, 10 faction enemies (swarm/armored/fast/healer/reward), faction bosses, regen + heal-aura behaviors, 2 counter-upgrades (Armor-Piercing, Tidal Nets), faction banner/topbar indicator |
+| Phase 5 — Pirate King Factions | ✅ Done | 5 lore-accurate Kings (Flameheart/Thalassa/Drakon/Tideborn + Goldwake Merchant King) rotating by wave band, 10 faction enemies (swarm/armored/fast/healer/reward), faction bosses, regen + heal-aura behaviors, 2 counter-upgrades (Armor-Piercing, Tidal Nets), faction banner/topbar indicator. **Jasper Barrow** (dragon ally) implemented as the HP-gated **Ghost War Frigate** summon ability (100 mana, island <50% HP, 20 s temporary ally ship via `Ship.expiresAt`) |
 | Phase 6 — Corruption & Crown Shard | ✅ Done | `CorruptionManager` (0–100 decaying meter), Crown Shard targeted ability (AoE + gold windfall, raises corruption), corruption modifiers (+dmg/+gold, +enemy HP/speed), violet sea tint + TopBar chip, v4 save migration |
 | Phase 7 — Prestige | ✅ Done | `PrestigeManager` + Tideglass meta-currency (milestone-gated `sqrt`, 10% on defeat), Sanctuary Evacuation flow (separate save key, run wipe), 4 permanent meta-upgrades (economy/damage/fortitude/headstart), Sanctuary UI tab |
 | Phase 8 — Captains, Resources, Automation | ⬜ Not started | Depth + idle systems |
@@ -496,6 +496,24 @@ A task is `[x]` only when **all** hold:
 
 > Newest first. One entry per meaningful change. Format: `YYYY-MM-DD — area — summary`.
 
+- 2026-06-27 — content/lore — Reworked the five factions to the canonical
+  **Pirate Kings** from `LORE.md`. Renamed `FactionId` and the 10 faction enemy
+  ids/names to lore-accurate Kings: **Ashen Reach / Ebon Flameheart** (fire
+  swarm), **Drowned Crown / Adara Thalassa** (armored leviathans), **Coiled
+  Expanse / Mordekai Drakon** (fast serpent racers), **Black Spiral / Nimue
+  Tideborn** (self-healing abyssal menders), and the net-new **Goldwake
+  Consortium / Merchant King** (reward-rich bounty galleons). Updated
+  `FACTION_DEFS`/`FACTION_ORDER`, `ENEMY_DEFS` (stats preserved), and the
+  renderer `ENEMY_STYLES` style-map keys; UI (TopBar/WaveBanner) is data-driven
+  so it followed automatically. Since **Jasper Barrow** is canonically a dragon
+  *ally* (not a hunter), he was implemented instead as a player ability: a new
+  HP-gated **Ghost War Frigate** summon — `ghostFrigate` ability (100 mana,
+  cooldown 45 s, castable only while island HP < 50% via `AbilityManager.hpGateMet`)
+  that calls `ShipManager.addTemporary` to conjure a large/fast/armor-ignoring
+  `ghostWarFrigate` (summon-only `ShipDef`) for 20 s. Added `Ship.expiresAt` +
+  `ShipDef.summonOnly`; summoned ships are excluded from `BUILDABLE_SHIPS`,
+  uncounted in `shipsOwned`, and expired in `ShipManager.update()`. Wired the new
+  ability into the snapshot + `AbilityBar` (disabled w/ "island < 50% HP" hint).
 - 2026-06-27 — engine/ui — Implemented **Phase 7 — Prestige ("Sanctuary
   Evacuation")**. Added a new stateful `PrestigeManager` that owns a `PrestigeState`
   (Tideglass currency, `bestWave`, `evacuations`, per-id meta levels) persisted
