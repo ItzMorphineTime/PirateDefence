@@ -34,7 +34,7 @@
 | Phase 3 — Fleet Expansion | ✅ Done | 4 new ship classes, behavior flags, outer-ring capital, save compat |
 | Phase 4 — Dragon System | ✅ Done | 4 hatchable dragons (Blaze/Icey/Speedy/Elder), Trust-spend hatching, passive auras, Blaze Breath active ability, sanctuary roster UI, circling-dragon renderer |
 | Phase 5 — Pirate King Factions | ✅ Done | 5 factions rotating by wave band, 10 faction enemies (swarm/armored/fast/healer/reward), faction bosses, regen + heal-aura behaviors, 2 counter-upgrades (Armor-Piercing, Tidal Nets), faction banner/topbar indicator |
-| Phase 6 — Corruption & Crown Shard | ⬜ Not started | Risk/reward forbidden power |
+| Phase 6 — Corruption & Crown Shard | ✅ Done | `CorruptionManager` (0–100 decaying meter), Crown Shard targeted ability (AoE + gold windfall, raises corruption), corruption modifiers (+dmg/+gold, +enemy HP/speed), violet sea tint + TopBar chip, v4 save migration |
 | Phase 7 — Prestige | ⬜ Not started | `PrestigeManager`, meta-progression |
 | Phase 8 — Captains, Resources, Automation | ⬜ Not started | Depth + idle systems |
 | Phase 9 — UX & Interaction Polish | ✅ Done | 2× island + dual slot ring, circular HP gauge, click-to-upgrade towers, scrolling sea, Auto-Retry (current wave) + Next/Prev + target-wave |
@@ -311,17 +311,27 @@ counter-upgrades, and visible faction indication (topbar + banner).
 
 **Depends on:** Phases 1, 5 (corruption modifies enemies/economy).
 
-- [ ] **6.1 `CorruptionManager`.** Tracks a corruption meter; applies global
-  modifiers (e.g., +damage/+gold but tougher/faster enemies). _Files:_ new
-  manager, `GameEngine.ts`, `world.ts`.
-- [ ] **6.2 Crown Shard upgrade/ability.** A gated, powerful effect that raises
-  corruption when used. _Files:_ `data/abilities.ts` or `data/upgrades.ts`.
-- [ ] **6.3 Feedback.** Visual corruption state (tinted sea, warning UI). _Files:_
-  `BattlefieldRenderer.ts`, `TopBar.tsx`.
-- [ ] **6.4 Save.** Persist corruption level. _Files:_ `save.ts`, migration.
+- [x] **6.1 `CorruptionManager`.** Tracks a 0–100 corruption meter that decays
+  slowly when idle and exposes `modifiers()` (damage/gold/enemy-HP/enemy-speed
+  multipliers). Folded into `computeBonuses` (damage + gold) plus two new
+  `Bonuses` fields (`corruptionEnemySpeedMult`, `corruptionEnemyHpMult`) consumed
+  at enemy movement and spawn. _Files:_ new `managers/CorruptionManager.ts`,
+  `GameEngine.ts`, `world.ts`, `bonuses.ts`, `EnemyManager.ts`, `WaveManager.ts`,
+  `config.ts` (CORRUPTION tunables).
+- [x] **6.2 Crown Shard ability.** New targeted player ability (mana + powder):
+  heavy AoE damage + an instant gold windfall, then raises corruption via an
+  `onCorrupt` cast-ctx callback. Auto-renders in `AbilityBar` from `ABILITY_LIST`.
+  _Files:_ `data/abilities.ts`, `AbilityManager.ts`, `types.ts`,
+  `config.ts` (CROWN_SHARD_TUNING), `GameEngine.ts`.
+- [x] **6.3 Feedback.** Violet sea tint scaling with the meter (radial gradient
+  clipped to the sea annulus) + a conditional "Corruption %" TopBar chip.
+  _Files:_ `BattlefieldRenderer.ts`, `TopBar.tsx`.
+- [x] **6.4 Save.** Corruption level persisted; `SAVE_VERSION` 3→4 with a
+  backfilling migration. _Files:_ `save.ts`, `config.ts`, `GameEngine.ts`.
 
-**Acceptance:** corruption changes both power and threat measurably and is
-visible to the player; persists.
+**Acceptance:** ✅ corruption measurably boosts damage/gold while toughening &
+speeding the tide, is shown via the sea tint + TopBar chip, and persists across
+reloads (v4 save).
 
 ### Phase 7 — Prestige ("Sanctuary Evacuation")
 
@@ -473,6 +483,31 @@ A task is `[x]` only when **all** hold:
 
 > Newest first. One entry per meaningful change. Format: `YYYY-MM-DD — area — summary`.
 
+- 2026-06-27 — engine/ui — Implemented **Phase 6 — Corruption & Crown Shard**.
+  Added a 0–100 corruption meter (`World.corruption`) owned by a new stateless
+  `CorruptionManager` (raise on cast, slow `decayPerSec` decay, and a
+  `modifiers()` accessor). Resolved the design autonomously as a **forbidden
+  risk/reward** axis: corruption flows through `computeBonuses(up, dragon,
+  corruption)` to fold a `damageMult` into tower/ship damage and a `goldMult`
+  into gold, plus two new `Bonuses` fields — `corruptionEnemySpeedMult`
+  (compounded into `EnemyManager` movement) and `corruptionEnemyHpMult` (applied
+  at `WaveManager` spawn) — so corruption simultaneously powers you up *and*
+  toughens/speeds the tide. The source of corruption is a new **Crown Shard**
+  targeted player ability (`data/abilities.ts` + `ABILITY_LIST`, auto-rendered by
+  `AbilityBar`): mana+powder cost, heavy AoE damage + an instant gold windfall,
+  then raises corruption via an `onCorrupt` cast-ctx callback (mirroring the
+  existing `onManaFromKill` seam) — `AbilityManager.castCrownShard`. `GameEngine`
+  constructs the manager from the save, ticks decay only while corruption > 0
+  (recomputing derived bonuses + mirroring `world.corruption`), and surfaces
+  `corruption`/`corruptionMax` in the snapshot. Feedback: a violet radial sea
+  tint clipped to the sea annulus that deepens with the meter
+  (`BattlefieldRenderer.drawSea`) and a conditional **Corruption %** chip in
+  `TopBar`. Persistence bumped `SAVE_VERSION` 3→4 with a backfilling v3→v4
+  migration. Tunables live in `config.ts` (`CORRUPTION`, `CROWN_SHARD_TUNING`).
+  _Files:_ new `managers/CorruptionManager.ts`; `config.ts`, `world.ts`,
+  `bonuses.ts`, `types.ts`, `data/abilities.ts`, `managers/AbilityManager.ts`,
+  `managers/EnemyManager.ts`, `managers/WaveManager.ts`, `GameEngine.ts`,
+  `save.ts`, `render/BattlefieldRenderer.ts`, `ui/TopBar.tsx`.
 - 2026-06-26 — engine/ui — Implemented **Phase 5 — The Five Pirate King
   Factions**. Resolved the faction-selection decision as **rotating by wave
   band** (`band = floor((wave-1) / WAVE.bossEvery) % FACTION_ORDER.length`),

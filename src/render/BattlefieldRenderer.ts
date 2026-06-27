@@ -14,6 +14,7 @@ import {
   ISLAND_RADIUS,
   ORBIT_RADII,
   SPAWN_RADIUS,
+  CORRUPTION,
 } from "../game/config";
 import type { Vec2 } from "../game/types";
 
@@ -210,6 +211,32 @@ export class BattlefieldRenderer {
       }
     }
     ctx.restore();
+
+    // Crown Shard corruption stains the water violet, deepening toward the
+    // shoreline as the meter climbs. Clipped to the same sea annulus.
+    const corruptFrac =
+      CORRUPTION.max > 0 ? this.engine.world.corruption / CORRUPTION.max : 0;
+    if (corruptFrac > 0) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(cx, cy, this.s(SPAWN_RADIUS), 0, Math.PI * 2);
+      ctx.arc(cx, cy, this.s(ISLAND_RADIUS + 18), 0, Math.PI * 2, true);
+      ctx.clip("evenodd");
+      const grad = ctx.createRadialGradient(
+        cx,
+        cy,
+        this.s(ISLAND_RADIUS),
+        cx,
+        cy,
+        this.s(SPAWN_RADIUS)
+      );
+      const a = 0.35 * corruptFrac;
+      grad.addColorStop(0, `rgba(150,70,210,${a})`);
+      grad.addColorStop(1, `rgba(90,30,140,${a * 0.4})`);
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+      ctx.restore();
+    }
 
     // faint spawn perimeter
     ctx.strokeStyle = "rgba(80,130,170,0.15)";

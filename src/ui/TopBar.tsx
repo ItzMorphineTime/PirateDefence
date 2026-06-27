@@ -56,6 +56,17 @@ export function TopBar({ snap }: { snap: GameSnapshot }) {
           </div>
         </div>
       )}
+      {snap.corruption > 0 && (
+        <div
+          className="stat-chip"
+          title="Crown Shard corruption: boosts your damage & gold, but the tide grows tougher and faster. Decays over time."
+        >
+          <div className="label">Corruption</div>
+          <div className="value" style={{ color: "#b56cff" }}>
+            {Math.round((snap.corruption / snap.corruptionMax) * 100)}%
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -33,9 +33,23 @@ export const ABILITY_DEFS: Record<AbilityId, AbilityDef> = {
     cooldown: 15,
     targeted: false,
   },
+  crownShard: {
+    id: "crownShard",
+    name: "Crown Shard",
+    desc: "Forbidden power: devastate an area and mint gold — but raise corruption.",
+    cost: { mana: 50, powder: 20 },
+    cooldown: 16,
+    targeted: true,
+  },
 };
 
-export const ABILITY_LIST: AbilityId[] = ["barrage", "rally", "broadside", "repairs"];
+export const ABILITY_LIST: AbilityId[] = [
+  "barrage",
+  "rally",
+  "broadside",
+  "repairs",
+  "crownShard",
+];
 
 // Tunable ability effect values.
 export const ABILITY_TUNING = {

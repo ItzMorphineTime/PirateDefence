@@ -279,7 +279,12 @@ export interface Effect {
 // ---------------------------------------------------------------------------
 // Abilities
 // ---------------------------------------------------------------------------
-export type AbilityId = "barrage" | "rally" | "broadside" | "repairs";
+export type AbilityId =
+  | "barrage"
+  | "rally"
+  | "broadside"
+  | "repairs"
+  | "crownShard";
 
 export interface AbilityDef {
   id: AbilityId;
@@ -467,4 +472,8 @@ export interface GameSnapshot {
   armedDragonAbility: DragonAbilityId | null;
   bannerText: string | null;
   eventToast: { title: string; body: string } | null;
+  /** Crown Shard corruption meter (0..CORRUPTION.max). */
+  corruption: number;
+  /** Maximum corruption (for the UI gauge). */
+  corruptionMax: number;
 }

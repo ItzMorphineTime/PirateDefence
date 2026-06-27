@@ -2,7 +2,7 @@ import type { AbilityId, AbilityState, Vec2 } from "../types";
 import type { World } from "../world";
 import { ABILITY_DEFS, ABILITY_LIST, ABILITY_TUNING } from "../data/abilities";
 import { SHIP_DEFS } from "../data/ships";
-import { CENTER } from "../config";
+import { CENTER, CORRUPTION, CROWN_SHARD_TUNING } from "../config";
 import { dist } from "../math";
 import { applyDamage } from "../combat";
 import type { ResourceManager } from "./ResourceManager";
@@ -42,6 +42,8 @@ export class AbilityManager {
       goldScale: number;
       target?: Vec2;
       onManaFromKill: (amt: number) => void;
+      /** Raise the corruption meter (Crown Shard only). */
+      onCorrupt: (amount: number) => void;
     }
   ): boolean {
     const def = ABILITY_DEFS[id];
@@ -103,8 +105,49 @@ export class AbilityManager {
           color: "#5ad17e",
         });
         break;
+      case "crownShard":
+        this.castCrownShard(ctx);
+        break;
     }
     return true;
+  }
+
+  /**
+   * Crown Shard — forbidden risk/reward. Unleashes heavy AoE damage on the
+   * target area and mints an instant gold windfall, then raises the corruption
+   * meter (which buffs offense/economy but toughens & speeds the tide).
+   */
+  private castCrownShard(ctx: {
+    world: World;
+    res: ResourceManager;
+    goldScale: number;
+    target?: Vec2;
+    onCorrupt: (amount: number) => void;
+  }): void {
+    const { world, target } = ctx;
+    if (!target) return;
+    const radius = CROWN_SHARD_TUNING.radius;
+    // Violet shard-burst effect.
+    world.effects.push({
+      pos: { x: target.x, y: target.y },
+      radius,
+      life: 0.6,
+      maxLife: 0.6,
+      color: "#b56cff",
+    });
+    for (const e of world.enemies) {
+      if (dist(e.pos, target) <= radius) {
+        applyDamage(world, e, CROWN_SHARD_TUNING.damage, ctx.res, ctx.goldScale);
+      }
+    }
+    world.enemies = world.enemies.filter((e) => e.hp > 0);
+    // Gold windfall (scaled by the player's gold multiplier, like kills).
+    ctx.res.add(
+      "gold",
+      CROWN_SHARD_TUNING.goldWindfall * world.bonuses.goldMult
+    );
+    // The price of forbidden power: corruption rises.
+    ctx.onCorrupt(CORRUPTION.perShardCast);
   }
 
   private castBarrage(ctx: {

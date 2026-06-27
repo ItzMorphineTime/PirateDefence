@@ -26,6 +26,7 @@ import { ShipManager } from "./managers/ShipManager";
 import { ProjectileManager } from "./managers/ProjectileManager";
 import { AbilityManager } from "./managers/AbilityManager";
 import { DragonManager } from "./managers/DragonManager";
+import { CorruptionManager } from "./managers/CorruptionManager";
 import { TOWER_DEFS } from "./data/towers";
 import { SHIP_DEFS } from "./data/ships";
 import { ABILITY_DEFS } from "./data/abilities";
@@ -39,6 +40,7 @@ import {
   AUTOSAVE_INTERVAL,
   TOWER_SLOT_COUNT,
   WAVE,
+  CORRUPTION,
 } from "./config";
 import { saveGame, type SaveData } from "./save";
 
@@ -58,6 +60,7 @@ export class GameEngine {
   projectiles: ProjectileManager;
   abilities: AbilityManager;
   dragons: DragonManager;
+  corruption: CorruptionManager;
 
   speed = 1;
   autoAdvance = true;
@@ -99,6 +102,7 @@ export class GameEngine {
     this.projectiles = new ProjectileManager();
     this.abilities = new AbilityManager();
     this.dragons = new DragonManager(save?.dragon);
+    this.corruption = new CorruptionManager(save?.corruption);
 
     const maxIslandHp = BASE_ISLAND_HP;
     this.world = {
@@ -109,13 +113,18 @@ export class GameEngine {
       effects: [],
       islandHp: save?.islandHp ?? maxIslandHp,
       maxIslandHp,
-      bonuses: computeBonuses(this.up, this.dragons.state),
+      bonuses: computeBonuses(
+        this.up,
+        this.dragons.state,
+        this.corruption.modifiers()
+      ),
       rallyUntil: 0,
       rallyMult: 1,
       time: 0,
       damageEvents: [],
       bossKills: 0,
       shipsOwned: emptyShipCounts(),
+      corruption: this.corruption.level,
     };
 
     if (save) this.applySave(save);
@@ -143,7 +152,7 @@ export class GameEngine {
 
   toSave(): SaveData {
     return {
-      version: 3,
+      version: 4,
       resources: this.res.res,
       upgrades: this.up.levels,
       wave: this.waves.wave,
@@ -158,6 +167,7 @@ export class GameEngine {
       })),
       shipsOwned: { ...this.world.shipsOwned },
       dragon: this.dragons.state,
+      corruption: this.corruption.level,
     };
   }
 
@@ -279,6 +289,15 @@ export class GameEngine {
     // Abilities cooldowns (player + dragon)
     this.abilities.update(dt);
     this.dragons.update(dt);
+
+    // Corruption decays slowly; while nonzero its modifiers shift each tick, so
+    // recompute derived bonuses and mirror the meter onto the world (for the
+    // renderer's sea tint). Skips the work entirely at zero corruption.
+    if (this.corruption.level > 0) {
+      this.corruption.update(dt);
+      this.refreshDerived();
+      w.corruption = this.corruption.level;
+    }
 
     // Effects decay
     for (const fx of w.effects) fx.life -= dt;
@@ -456,6 +475,11 @@ export class GameEngine {
         this.res.add("mana", amt);
         this.res.clampMana(this.world.bonuses.maxMana);
       },
+      onCorrupt: (amt) => {
+        this.corruption.raise(amt);
+        this.world.corruption = this.corruption.level;
+        this.refreshDerived();
+      },
     });
     return ok;
   }
@@ -598,7 +622,11 @@ export class GameEngine {
 
   // ------------------------------------------------------------- internals
   private refreshDerived(): void {
-    this.world.bonuses = computeBonuses(this.up, this.dragons.state);
+    this.world.bonuses = computeBonuses(
+      this.up,
+      this.dragons.state,
+      this.corruption.modifiers()
+    );
     this.world.maxIslandHp = BASE_ISLAND_HP;
     this.res.clampMana(this.world.bonuses.maxMana);
     // Bonuses changed → cached tower ranges may be stale.
@@ -643,6 +671,7 @@ export class GameEngine {
         rally: { ...this.abilities.states.rally },
         broadside: { ...this.abilities.states.broadside },
         repairs: { ...this.abilities.states.repairs },
+        crownShard: { ...this.abilities.states.crownShard },
       },
       dragon: {
         ...this.dragons.state,
@@ -653,6 +682,8 @@ export class GameEngine {
       armedDragonAbility: this.armedDragonAbility,
       bannerText: this.bannerText,
       eventToast: this.eventToast,
+      corruption: this.corruption.level,
+      corruptionMax: CORRUPTION.max,
     };
   }
 

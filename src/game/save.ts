@@ -20,6 +20,7 @@ export interface SaveData {
   towers: { defId: TowerId; slotIndex: number; levels: TowerLevels }[];
   shipsOwned: Record<ShipId, number>;
   dragon: DragonState;
+  corruption: number;
 }
 
 export function saveGame(data: SaveData | null): void {
@@ -78,6 +79,13 @@ const MIGRATIONS: Record<number, (save: AnySave) => AnySave> = {
       },
     };
   },
+  // v3 -> v4: Crown Shard corruption meter. Pre-corruption saves load clean
+  // (no accrued corruption).
+  3: (old) => ({
+    ...old,
+    version: 4,
+    corruption: typeof old.corruption === "number" ? old.corruption : 0,
+  }),
 };
 
 export function loadGame(): SaveData | null {

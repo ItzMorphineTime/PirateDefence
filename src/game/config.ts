@@ -120,12 +120,42 @@ export const TOWER_UPGRADE = {
   sellRefund: 0.5, // fraction of invested value returned when a tower is sold
 };
 
+// --- Corruption & Crown Shard (Phase 6) ---
+// Corruption is a 0..100 risk/reward meter. It is raised by wielding the
+// forbidden Crown Shard ability and decays slowly when left alone. Higher
+// corruption grants escalating offense/economy bonuses but makes enemies
+// tougher and faster — power bought at growing threat.
+export const CORRUPTION = {
+  max: 100,
+  /** Corruption added each time the Crown Shard is unleashed (30% of the meter). */
+  perShardCast: 30,
+  /** Passive corruption shed per second when not being raised. */
+  decayPerSec: 0.6,
+  // --- Effect magnitudes, expressed per full meter (× corruption/max) ---
+  /** Up to +100% tower & ship damage at max corruption. */
+  damageBonusAtMax: 1.0,
+  /** Up to +120% gold at max corruption. */
+  goldBonusAtMax: 1.2,
+  /** Up to +90% enemy HP at max corruption (threat). */
+  enemyHpAtMax: 0.9,
+  /** Up to +60% enemy speed at max corruption (threat). */
+  enemySpeedAtMax: 0.6,
+};
+
+/** Crown Shard active-ability tunables (forbidden AoE + gold windfall). */
+export const CROWN_SHARD_TUNING = {
+  damage: 260,
+  radius: 150,
+  /** Gold minted instantly on cast (flat, before goldMult). */
+  goldWindfall: 120,
+};
+
 // --- Speed multipliers ---
 export const SPEED_OPTIONS = [1, 3, 6];
 
 // --- Save ---
 export const SAVE_KEY = "tidehold_save_v1";
-export const SAVE_VERSION = 3;
+export const SAVE_VERSION = 4;
 export const AUTOSAVE_INTERVAL = 8; // seconds (real time)
 
 /** DPS is averaged over this rolling window (seconds). */

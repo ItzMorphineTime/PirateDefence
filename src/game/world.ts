@@ -39,4 +39,8 @@ export interface World {
   bossKills: number;
 
   shipsOwned: Record<ShipId, number>;
+
+  /** Current Crown Shard corruption (0..CORRUPTION.max); drives the sea tint
+   *  and threat/power modifiers. Mirrors CorruptionManager.level each tick. */
+  corruption: number;
 }

@@ -63,8 +63,12 @@ export class EnemyManager {
       if (e.hp <= 0) continue; // killed by burn this tick
       const def = ENEMY_DEFS[e.defId];
       const angle = Math.atan2(CENTER.y - e.pos.y, CENTER.x - e.pos.x);
-      // Per-enemy status slow × global Icey/Elder dragon slow aura.
-      const factor = moveFactor(e, now) * world.bonuses.enemySlowMult;
+      // Per-enemy status slow × Icey/Elder slow aura × Crown Shard corruption
+      // speed-up (corruption makes the tide faster as well as tougher).
+      const factor =
+        moveFactor(e, now) *
+        world.bonuses.enemySlowMult *
+        world.bonuses.corruptionEnemySpeedMult;
       const step = e.speed * factor * dt;
       e.pos.x += Math.cos(angle) * step;
       e.pos.y += Math.sin(angle) * step;

@@ -78,9 +78,11 @@ export class WaveManager {
       this.spawnTimer -= dt;
       while (this.spawnTimer <= 0 && this.toSpawn.length > 0) {
         const id = this.toSpawn.shift()!;
-        const scale = ENEMY_DEFS[id].isBoss
+        const base = ENEMY_DEFS[id].isBoss
           ? this.hpScale() * WAVE.bossHpMultiplier
           : this.hpScale();
+        // Crown Shard corruption makes the whole tide tougher.
+        const scale = base * world.bonuses.corruptionEnemyHpMult;
         enemies.spawn(world, id, scale);
         this.spawnTimer += WAVE.spawnInterval;
       }

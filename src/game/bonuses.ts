@@ -4,6 +4,7 @@
 // ============================================================================
 import type { TowerId, UpgradeId, DragonState } from "./types";
 import type { UpgradeManager } from "./managers/UpgradeManager";
+import type { CorruptionModifiers } from "./managers/CorruptionManager";
 import { UP, MAGIC_TOWER_IDS, COUNTER_STATUS } from "./data/upgrades";
 import { TOWER_DEFS } from "./data/towers";
 import { SHIP_DEFS } from "./data/ships";
@@ -26,13 +27,21 @@ export interface Bonuses {
   towerFireRateMult: number;
   /** Global enemy speed multiplier from hatched dragons (Icey / Elder); ≤ 1. */
   enemySlowMult: number;
+  /** Corruption-driven enemy speed multiplier (≥ 1); compounds with slow. */
+  corruptionEnemySpeedMult: number;
+  /** Corruption-driven enemy max-HP multiplier (≥ 1); applied at spawn. */
+  corruptionEnemyHpMult: number;
   /** Flat armor shred applied by every tower hit (Armor-Piercing Munitions). */
   counterArmorShred: number;
   /** Slow factor (0..1) applied by every tower hit (Tidal Nets); 0 = none. */
   counterSlowFactor: number;
 }
 
-export function computeBonuses(up: UpgradeManager, dragon: DragonState): Bonuses {
+export function computeBonuses(
+  up: UpgradeManager,
+  dragon: DragonState,
+  corruption: CorruptionModifiers
+): Bonuses {
   // --- Dragon auras (hatched dragons each contribute; Elder adds a slice of all).
   const has = (id: string): boolean => dragon.hatched.includes(id as never);
   const elder = has("elder") ? DRAGON.elderAll : 0;
@@ -68,6 +77,8 @@ export function computeBonuses(up: UpgradeManager, dragon: DragonState): Bonuses
     dragonDamageMult,
     towerFireRateMult,
     enemySlowMult,
+    corruptionEnemySpeedMult: corruption.enemySpeedMult,
+    corruptionEnemyHpMult: corruption.enemyHpMult,
     counterArmorShred,
     counterSlowFactor,
     towerDamageMult: (id: TowerId) => {
@@ -75,7 +86,8 @@ export function computeBonuses(up: UpgradeManager, dragon: DragonState): Bonuses
       let m = 1 + lvl(`${id}Dmg`) * mag(`${id}Dmg`);
       // Shared magic-damage upgrade applies on top for magic towers.
       if (isMagic(id)) m += lvl("magicDmg") * UP.magicDmg;
-      return m * dragonDamageMult;
+      // Dragon auras × forbidden Crown Shard corruption boost.
+      return m * dragonDamageMult * corruption.damageMult;
     },
     towerRangeFlat: (id: TowerId) => {
       // Convention: each ranged tower has a `{id}Range` upgrade.
@@ -86,13 +98,14 @@ export function computeBonuses(up: UpgradeManager, dragon: DragonState): Bonuses
     watchtowerAura:
       (TOWER_DEFS.watchtower.rangeAura ?? 0) +
       up.level("watchtowerAura") * UP.watchtowerAura,
-    shipDamageMult: 1 + up.level("shipDmg") * UP.shipDmg,
+    shipDamageMult:
+      (1 + up.level("shipDmg") * UP.shipDmg) * corruption.damageMult,
     shipRangeFlat: up.level("shipRange") * UP.shipRange,
     shipOrbitMult: 1 + up.level("shipOrbit") * UP.shipOrbit,
     shipReloadMult: 1 + up.level("shipReload") * UP.shipReload,
     maxMana: BASE_MAX_MANA + up.level("maxMana") * UP.maxMana,
     manaRegen: BASE_MANA_REGEN + up.level("manaRegen") * UP.manaRegen,
-    goldMult: 1 + up.level("goldGain") * UP.goldGain,
+    goldMult: (1 + up.level("goldGain") * UP.goldGain) * corruption.goldMult,
   };
 }
 
