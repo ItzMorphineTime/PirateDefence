@@ -6,6 +6,8 @@ Tidehold blends **incremental progression**, **tower defense**, **fleet defense*
 
 This repository contains the **MVP prototype** — a fully playable vertical slice that proves the core loop and is architected for long-term expansion.
 
+<img src="PirateDefenceExample01.png" alt="Pirate Defence">
+
 ---
 
 ## ✨ Features
