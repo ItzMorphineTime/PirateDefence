@@ -133,6 +133,30 @@ npm run dev
 
 ---
 
+## 🌐 Deploy to GitHub Pages
+
+The repo ships with a GitHub Actions workflow at
+[`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) that builds the
+Vite app and publishes it to **GitHub Pages** on every push to `master` (and
+on-demand from the **Actions** tab).
+
+**One-time setup:** in your repository, go to **Settings → Pages → Build and
+deployment → Source** and choose **GitHub Actions**. That's it — the next push to
+`master` deploys automatically.
+
+Once deployed, the game is live at:
+
+```
+https://<your-user>.github.io/<your-repo>/
+```
+
+The workflow passes the repository name to the build as `BASE_PATH`, so Vite
+emits asset URLs under the correct `/<repo>/` sub-path automatically — no manual
+config needed even if you fork or rename the repo. (Locally, `npm run dev` and
+`npm run preview` still serve from `/`.)
+
+---
+
 ## 🛠️ Tech Stack
 
 - **[React 18](https://react.dev/)** + **[TypeScript](https://www.typescriptlang.org/)** (strict mode) — UI panels
